@@ -4,15 +4,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/node/v/rulefy.svg)](https://nodejs.org/)
 
-Rulefy is a Node.js tool that transforms GitHub repositories into [Cursor](https://cursor.sh/) rules instructions in a markdown file. It leverages [repomix](https://github.com/yamadashy/repomix) for repository-to-text conversion and integrates with cursor rules guidelines to guide LLM generation.
+**Supercharge your Cursor AI with codebase-specific intelligence.** Rulefy transforms your GitHub repositories into custom rules that teach Cursor AI how your project works, resulting in more accurate code suggestions, better refactoring, and contextually aware assistance.
+
+## Why Rulefy?
+
+- ✅ **Instant Expertise**: Your AI assistant immediately understands your project conventions and architecture
+- ✅ **Better Suggestions**: Get code completions that match your project's style and patterns
+- ✅ **Fewer Hallucinations**: Rules constrain the AI to work within your codebase's patterns and dependencies
+- ✅ **Zero Learning Curve**: One command to analyze your repo and generate optimized rules
+
 
 ## Features
 
-- 🚀 Analyze GitHub repositories or local codebases
-- 🧩 Convert codebase structure to LLM-friendly format
+- 🚀 Analyze GitHub repositories or local codebases with a single command
+- 🧩 Intelligently extract project structure, conventions, and patterns
 - 🤖 Generate tailored Cursor rules using Claude AI
-- 📝 Create customized .rules.mdc files for Cursor editor
-- 🔧 Easily configurable through CLI options
+- 📝 Create production-ready .rules.mdc files for immediate use
+- 🔧 Customize analysis with flexible configuration options
 
 ## Installation
 
@@ -47,9 +55,6 @@ Examples:
 # Using GitHub URL
 rulefy https://github.com/fastapi/fastapi
 
-# Using GitHub shorthand
-rulefy fastapi/fastapi
-
 # Using local repository path
 rulefy ./my-local-project
 ```
@@ -59,6 +64,18 @@ This will:
 2. Read the cursor rules guidelines
 3. Generate cursor rules using Claude Sonnet 3.5
 4. Save the output to a `<repo-name>.rules.mdc` file
+
+
+## Installing Rules in Cursor
+
+After generating your rules file, you'll need to install it in Cursor:
+
+1. Open Cursor editor
+2. Go to Settings > AI > Rules
+3. Click "Add Rules File" and select your generated `.rules.mdc` file
+4. Restart Cursor to apply the new rules
+
+For more detailed instructions, see the [official Cursor documentation](https://docs.cursor.com/context/rules-for-ai).
 
 ### Options
 
@@ -75,7 +92,7 @@ Options:
 
 1. **Repository Conversion**: Uses repomix to convert GitHub repositories into a textual representation
 2. **Guidelines Integration**: Reads cursor rules guidelines from the specified file
-3. **LLM Generation**: Passes the repository content and guidelines to Claude Sonnet 3.5
+3. **LLM Generation**: Passes the repository content and guidelines to LLM
 4. **Output**: Saves the generated cursor rules to a markdown file
 
 ## Example Output
@@ -102,6 +119,13 @@ This project is a TypeScript application that...
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
 
-MIT
+## Acknowledgements
+
+This project is inspired by and builds upon the work of:
+
+- [repomix](https://github.com/yamadashy/repomix) - A tool for converting repositories into textual representations
+- [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) - A curated list of cursor rules for different projects and languages
+
+We're grateful to these projects for their contributions to the developer tooling ecosystem.
+

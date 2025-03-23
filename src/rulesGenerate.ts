@@ -6,9 +6,6 @@ import pc from 'picocolors';
 import { generateWithLLM } from './llmGenerator.js';
 
 interface RulesGenerateOptions {
-  provider: string;
-  outputFile?: string;
-  guidelinesPath: string;
   includePatterns?: string;
 }
 
@@ -20,9 +17,9 @@ export async function rulesGenerate(
     // 1. Extract repo name from URL or path
     const repoName = extractRepoName(repoPath);
     
-    // 2. Set output directory based on repo name and output file name
+    // 2. Set output directory based on repo name
     const outputDir = `${repoName}-output`;
-    const outputFile = path.join(outputDir, options.outputFile || `${repoName}.rules.mdc`);
+    const outputFile = path.join(outputDir, `${repoName}.rules.mdc`);
     
     // Ensure output directory exists
     await fs.mkdir(outputDir, { recursive: true });
@@ -41,15 +38,15 @@ export async function rulesGenerate(
     // 4. Read guidelines file
     let guidelinesText: string;
     try {
-      guidelinesText = await readGuidelines(options.guidelinesPath);
-    } catch (error) {
-      console.log(pc.yellow('Warning: Could not read guidelines. Using built-in guidelines.'));
+      guidelinesText = await readGuidelines('./cursorrules-guidelines.md');
+    } catch (_error) {
+      console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + _error + '. Using built-in guidelines.'));
       guidelinesText = generateMockGuidelines();
     }
     
-    console.log(pc.cyan(`3. Generating cursor rules with ${options.provider}...`));
+    console.log(pc.cyan('3. Generating cursor rules...'));
     // 5. Generate rules using LLM
-    const generatedRules = await generateWithLLM(repoText, guidelinesText, options.provider, outputDir);
+    const generatedRules = await generateWithLLM(repoText, guidelinesText, outputDir);
     
     console.log(pc.cyan(`4. Writing rules to ${outputFile}...`));
     // 6. Write output to file
@@ -73,9 +70,9 @@ function extractRepoName(repoPath: string): string {
     if (fsSync.statSync(repoPath).isDirectory()) {
       return path.basename(repoPath);
     }
-  } catch (e) {
+  } catch (_e) {
     // Path doesn't exist or can't be accessed, check if it's a remote repo
-    console.log(pc.yellow(`Warning: Could not find a local repo by path: ${repoPath}`));
+    console.log(pc.yellow(`Warning: Could not find a local repo by path: ${repoPath}. Error: ${_e}`));
   }
   
   // Handle format like 'owner/repo'
@@ -153,8 +150,8 @@ async function readGuidelines(guidelinesPath: string): Promise<string> {
   try {
     const absolutePath = path.resolve(process.cwd(), guidelinesPath);
     return await fs.readFile(absolutePath, 'utf-8');
-  } catch (error) {
-    throw new Error(`Failed to read guidelines file at ${guidelinesPath}. Make sure the file exists.`);
+  } catch (_error) {
+    throw new Error(`Failed to read guidelines file at ${guidelinesPath}. Error: ${_error}. Make sure the file exists.`);
   }
 }
 

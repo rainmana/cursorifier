@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getEncoding, encodingForModel } from 'js-tiktoken';
+import { getEncoding } from 'js-tiktoken';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import chalk from 'chalk';
+import pc from 'picocolors';
 
 // Environment variables for chunk configuration, with defaults
 const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || '100000');
@@ -11,14 +11,8 @@ const CHUNK_OVERLAP = Number(process.env.CHUNK_OVERLAP || '50000');
 export async function generateWithLLM(
   repoContent: string,
   guidelines: string,
-  provider: string,
   outputDir: string = '.'
 ): Promise<string> {
-  // Currently only supporting Claude Sonnet 3.5
-  if (provider !== 'claude-sonnet-3.5-latest') {
-    throw new Error(`Provider ${provider} is not supported. Currently only claude-sonnet-3.5-latest is supported.`);
-  }
-  
   // If this is a test run with dummy API key, just return a mock response
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (apiKey === 'dummy-key') {
@@ -44,36 +38,30 @@ function progressBar(current: number, total: number, length = 30): string {
   return `${filled}${empty} ${percentageText}%`;
 }
 
-/**
- * Format token count with commas and color based on size
- */
 function formatTokenCount(count: number): string {
   const formatted = count.toLocaleString();
-  if (count < 50000) return chalk.green(formatted);
-  if (count < 100000) return chalk.yellow(formatted);
-  return chalk.red(formatted);
+  if (count < 50000) return pc.green(formatted);
+  if (count < 100000) return pc.yellow(formatted);
+  return pc.red(formatted);
 }
 
-/**
- * Split text into chunks based on token count
- */
 function chunkText(text: string, chunkSize: number, overlap: number): string[] {
-  console.log(chalk.cyan.bold('\n┌─────────────────────────────────────────┐'));
-  console.log(chalk.cyan.bold('│           CONTENT CHUNKING               │'));
-  console.log(chalk.cyan.bold('└─────────────────────────────────────────┘\n'));
+  console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.cyan('│           CONTENT CHUNKING               │'));
+  console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
   
-  // Get tokenizer for the model (cl100k_base is closest to Claude's tokenizer)
+  // Get tokenizer for the model
   const encoding = getEncoding('cl100k_base');
   
   const tokens = encoding.encode(text);
   const totalTokens = tokens.length;
   const chunks: string[] = [];
   
-  console.log(`${chalk.blue('●')} Document size: ${formatTokenCount(totalTokens)} tokens`);
-  console.log(`${chalk.blue('●')} Chunk size: ${formatTokenCount(chunkSize)} tokens`);
-  console.log(`${chalk.blue('●')} Chunk overlap: ${formatTokenCount(overlap)} tokens\n`);
+  console.log(`● Document size: ${formatTokenCount(totalTokens)} tokens`);
+  console.log(`● Chunk size: ${formatTokenCount(chunkSize)} tokens`);
+  console.log(`● Chunk overlap: ${formatTokenCount(overlap)} tokens\n`);
   
-  console.log(chalk.cyan('Chunking document...'));
+  console.log(pc.cyan('Chunking document...'));
   
   let i = 0;
   while (i < tokens.length) {
@@ -84,7 +72,7 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
     
     // Show chunking progress
     const progress = Math.min(i + chunkSize, tokens.length) / tokens.length;
-    process.stdout.write(`\r${chalk.cyan('Progress:')} ${progressBar(progress, 1)}`);
+    process.stdout.write(`\r${pc.cyan('Progress:')} ${progressBar(progress, 1)}`);
     
     // Move forward, accounting for overlap
     i += chunkSize - overlap;
@@ -95,7 +83,7 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
   }
   
   process.stdout.write('\n\n');
-  console.log(chalk.green(`✓ Chunking complete! Created ${chunks.length} chunks\n`));
+  console.log(pc.green(`✓ Chunking complete! Created ${chunks.length} chunks\n`));
   
   return chunks;
 }
@@ -115,22 +103,19 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
   const chunks = chunkText(repoContent, CHUNK_SIZE, CHUNK_OVERLAP);
   
   // Display token counts for each chunk in a table format
-  console.log(chalk.cyan.bold('┌─────────────────────────────────────────┐'));
-  console.log(chalk.cyan.bold('│          CHUNK INFORMATION              │'));
-  console.log(chalk.cyan.bold('└─────────────────────────────────────────┘\n'));
+  console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.cyan('│          CHUNK INFORMATION              │'));
+  console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
   
   // Fixed table width columns
   const chunkColWidth = 10;      // Width of "Chunk" column
   const tokenColWidth = 16;      // Width of "Token Count" column
   const sizeColWidth = 29;      // Width of "Size" column
   
-  // Calculate total width for consistent borders
-  const totalWidth = chunkColWidth + tokenColWidth + sizeColWidth + 4; // +4 for the vertical bars
-  
   // Create consistent table borders and headers
-  console.log(chalk.cyan(`┌${'─'.repeat(chunkColWidth)}┬${'─'.repeat(tokenColWidth)}┬${'─'.repeat(sizeColWidth)}┐`));
-  console.log(chalk.cyan(`│ ${'Chunk'.padEnd(chunkColWidth-2)} │ ${'Token Count'.padEnd(tokenColWidth-2)} │ ${'Size'.padEnd(sizeColWidth-2)} │`));
-  console.log(chalk.cyan(`├${'─'.repeat(chunkColWidth)}┼${'─'.repeat(tokenColWidth)}┼${'─'.repeat(sizeColWidth)}┤`));
+  console.log(pc.cyan(`┌${'─'.repeat(chunkColWidth)}┬${'─'.repeat(tokenColWidth)}┬${'─'.repeat(sizeColWidth)}┐`));
+  console.log(pc.cyan(`│ ${'Chunk'.padEnd(chunkColWidth-2)} │ ${'Token Count'.padEnd(tokenColWidth-2)} │ ${'Size'.padEnd(sizeColWidth-2)} │`));
+  console.log(pc.cyan(`├${'─'.repeat(chunkColWidth)}┼${'─'.repeat(tokenColWidth)}┼${'─'.repeat(sizeColWidth)}┤`));
   
   const encoding = getEncoding('cl100k_base');
   chunks.forEach((chunk, index) => {
@@ -152,21 +137,21 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
     const tokenCol = formatTokenCount(tokenCount).padEnd(tokenColWidth-2);
     const sizeCol = `${bar} ${percentText}`.padEnd(sizeColWidth-2);
     
-    console.log(chalk.cyan(`│ ${chunkCol} │ ${tokenCol} │ ${sizeCol} │`));
+    console.log(pc.cyan(`│ ${chunkCol} │ ${tokenCol} │ ${sizeCol} │`));
   });
   
-  console.log(chalk.cyan(`└${'─'.repeat(chunkColWidth)}┴${'─'.repeat(tokenColWidth)}┴${'─'.repeat(sizeColWidth)}┘\n`));
+  console.log(pc.cyan(`└${'─'.repeat(chunkColWidth)}┴${'─'.repeat(tokenColWidth)}┴${'─'.repeat(sizeColWidth)}┘\n`));
   
   let currentSummary = ''; // This will store our progressively built summary
   
   // Process each chunk progressively
-  console.log(chalk.cyan.bold('┌─────────────────────────────────────────┐'));
-  console.log(chalk.cyan.bold('│          PROCESSING CHUNKS              │'));
-  console.log(chalk.cyan.bold('└─────────────────────────────────────────┘\n'));
+  console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.cyan('│          PROCESSING CHUNKS              │'));
+  console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
   
   for (let i = 0; i < chunks.length; i++) {
     const chunkDisplay = `[${i+1}/${chunks.length}]`;
-    console.log(`${chalk.yellow('⟳')} Processing chunk ${chalk.yellow(chunkDisplay)} ${progressBar(i+1, chunks.length)}`);
+    console.log(`${pc.yellow('⟳')} Processing chunk ${pc.yellow(chunkDisplay)} ${progressBar(i+1, chunks.length)}`);
     
     const chunk = chunks[i];
     const isFirstChunk = i === 0;
@@ -213,7 +198,7 @@ IMPORTANT INSTRUCTIONS:
 `;
     }
 
-    process.stdout.write(`${chalk.blue('🔄')} Sending to Claude... `);
+    process.stdout.write(`${pc.blue('🔄')} Sending to Claude... `);
     
     try {
       const startTime = Date.now();
@@ -231,7 +216,7 @@ IMPORTANT INSTRUCTIONS:
       const endTime = Date.now();
       const processingTime = ((endTime - startTime) / 1000).toFixed(2);
       
-      process.stdout.write(chalk.green('✓\n'));
+      process.stdout.write(pc.green('✓\n'));
       
       // Extract the response text
       const content = response.content[0].text;
@@ -242,19 +227,19 @@ IMPORTANT INSTRUCTIONS:
       // Save intermediate output to file in the specified directory
       const intermediateFileName = path.join(outputDir, `cursorrules_chunk_${i+1}_of_${chunks.length}.md`);
       await fs.writeFile(intermediateFileName, currentSummary);
-      console.log(`${chalk.green('✓')} Saved intermediate output to ${chalk.blue(intermediateFileName)} ${chalk.gray(`(${processingTime}s)`)}\n`);
+      console.log(`${pc.green('✓')} Saved intermediate output to ${pc.blue(intermediateFileName)} ${pc.gray(`(${processingTime}s)`)}\n`);
     } catch (error) {
-      process.stdout.write(chalk.red('✗\n'));
+      process.stdout.write(pc.red('✗\n'));
       if (error instanceof Error) {
-        throw new Error(`${chalk.red('Error generating with Claude on chunk')} ${i+1}: ${error.message}`);
+        throw new Error(`${pc.red('Error generating with Claude on chunk')} ${i+1}: ${error.message}`);
       }
-      throw new Error(`${chalk.red('Unknown error occurred while generating with Claude on chunk')} ${i+1}`);
+      throw new Error(`${pc.red('Unknown error occurred while generating with Claude on chunk')} ${i+1}`);
     }
   }
   
-  console.log(chalk.green.bold('\n┌─────────────────────────────────────────┐'));
-  console.log(chalk.green.bold('│          PROCESSING COMPLETE            │'));
-  console.log(chalk.green.bold('└─────────────────────────────────────────┘\n'));
+  console.log(pc.green('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.green('│          PROCESSING COMPLETE            │'));
+  console.log(pc.green('└─────────────────────────────────────────┘\n'));
   
   return currentSummary;
 }
