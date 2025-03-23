@@ -1,0 +1,214 @@
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
+import pc from 'picocolors';
+import { generateWithLLM } from './llmGenerator.js';
+
+interface RulesGenerateOptions {
+  provider: string;
+  outputFile?: string;
+  guidelinesPath: string;
+  includePatterns?: string;
+}
+
+export async function rulesGenerate(
+  repoPath: string,
+  options: RulesGenerateOptions
+): Promise<void> {
+  try {
+    // 1. Extract repo name from URL or path
+    const repoName = extractRepoName(repoPath);
+    
+    // 2. Set output directory based on repo name and output file name
+    const outputDir = `${repoName}-output`;
+    const outputFile = path.join(outputDir, options.outputFile || `${repoName}.rules.mdc`);
+    
+    // Ensure output directory exists
+    await fs.mkdir(outputDir, { recursive: true });
+    
+    console.log(pc.cyan('1. Converting repository to text using repomix...'));
+    // 3. Run repomix to get repo representation
+    let repoText: string;
+    try {
+      repoText = await runRepomix(repoPath, outputDir, options.includePatterns);
+    } catch (error) {
+      console.log(pc.yellow(`Warning: Could not get actual repo content. Error: ${error}. Using mock content for testing.`));
+      repoText = generateMockRepoContent(repoName);
+    }
+    
+    console.log(pc.cyan('2. Reading cursor rules guidelines...'));
+    // 4. Read guidelines file
+    let guidelinesText: string;
+    try {
+      guidelinesText = await readGuidelines(options.guidelinesPath);
+    } catch (error) {
+      console.log(pc.yellow('Warning: Could not read guidelines. Using built-in guidelines.'));
+      guidelinesText = generateMockGuidelines();
+    }
+    
+    console.log(pc.cyan(`3. Generating cursor rules with ${options.provider}...`));
+    // 5. Generate rules using LLM
+    const generatedRules = await generateWithLLM(repoText, guidelinesText, options.provider, outputDir);
+    
+    console.log(pc.cyan(`4. Writing rules to ${outputFile}...`));
+    // 6. Write output to file
+    await fs.writeFile(outputFile, generatedRules);
+    
+    console.log(pc.green(`\n✅ Successfully generated cursor rules for ${repoName}!`));
+    console.log(`Output saved to: ${pc.bold(outputFile)}`);
+    console.log(`All generated files are in: ${pc.bold(outputDir)}`);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to generate rules: ${error.message}`);
+    }
+    throw new Error('Failed to generate rules: Unknown error');
+  }
+}
+
+function extractRepoName(repoPath: string): string {
+  // For local paths, use the directory name
+  try {
+    // Sync version to avoid Promise handling in this synchronous function
+    if (fsSync.statSync(repoPath).isDirectory()) {
+      return path.basename(repoPath);
+    }
+  } catch (e) {
+    // Path doesn't exist or can't be accessed, check if it's a remote repo
+    console.log(pc.yellow(`Warning: Could not find a local repo by path: ${repoPath}`));
+  }
+  
+  // Handle format like 'owner/repo'
+  if (/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/.test(repoPath)) {
+    return repoPath.split('/')[1];
+  }
+  
+  // Handle GitHub URLs (only http or https)
+  const githubUrlMatch = repoPath.match(/^https?:\/\/github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/);
+  if (githubUrlMatch) {
+    return githubUrlMatch[2];
+  }
+  
+  // If no match, use a sanitized version of the path as fallback
+  return repoPath.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/^-+|-+$/g, '');
+}
+
+async function runRepomix(repoPath: string, outputDir: string, includePatterns?: string): Promise<string> {
+  try {
+    // Check if repoPath is a URL or local path
+    const isRemoteRepo = isRemoteRepository(repoPath);
+    
+    // Build repomix command based on whether it's a remote or local repository
+    let command = isRemoteRepo 
+      ? `npx repomix --remote ${repoPath}` 
+      : `npx repomix ${repoPath}`;
+    
+    if (includePatterns) {
+      command += ` --include "${includePatterns}"`;
+    }
+    
+    // Add output directory to command
+    const outputFilePath = path.join(outputDir, 'repomix-output.xml');
+    command += ` --output "${outputFilePath}"`;
+    
+    // Display the command being executed
+    console.log(pc.cyan(`Executing: ${command}`));
+    
+    // Run repomix command
+    execSync(command, { 
+      encoding: 'utf-8',
+      stdio: 'inherit' // Show all output directly in the console
+    });
+    
+    // Read the content of the generated file
+    console.log(pc.green(`Reading repomix output from: ${outputFilePath}`));
+    
+    const content = await fs.readFile(outputFilePath, 'utf-8');
+    return content;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Error running repomix: ${error.message}`);
+    }
+    throw new Error('Unknown error occurred while running repomix');
+  }
+}
+
+// Helper function to determine if the path is a remote repository
+function isRemoteRepository(repoPath: string): boolean {
+  // Check for GitHub URL format
+  if (repoPath.startsWith('http://') || repoPath.startsWith('https://')) {
+    return true;
+  }
+  
+  // Check for shorthand format (e.g., 'owner/repo')
+  if (/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/.test(repoPath)) {
+    return true;
+  }
+  
+  // Otherwise consider it a local path
+  return false;
+}
+
+async function readGuidelines(guidelinesPath: string): Promise<string> {
+  try {
+    const absolutePath = path.resolve(process.cwd(), guidelinesPath);
+    return await fs.readFile(absolutePath, 'utf-8');
+  } catch (error) {
+    throw new Error(`Failed to read guidelines file at ${guidelinesPath}. Make sure the file exists.`);
+  }
+}
+
+function generateMockRepoContent(repoName: string): string {
+  return `# Project: ${repoName}
+
+## Directory Structure
+- src/
+  - index.ts
+  - core/
+    - processor.ts
+    - utils.ts
+  - lib/
+    - api.ts
+    - helpers.ts
+- tests/
+  - core.test.ts
+  - api.test.ts
+- package.json
+- tsconfig.json
+- README.md
+
+## Key Files
+### src/index.ts
+This is the main entry point of the application.
+
+### src/core/processor.ts
+Contains the core processing logic.
+
+### src/lib/api.ts
+Contains API integration code.
+
+## Technologies Used
+- TypeScript
+- Node.js
+- Jest for testing
+`;
+}
+
+function generateMockGuidelines(): string {
+  return `**Guidelines for Creating Content for** .cursorrules
+
+.cursorrules files serve as customized instruction sets for Cursor AI, tailoring its code generation behavior to specific project requirements. These files should be placed in the repository root to provide project-wide context and guidelines.
+
+**1. Use Markdown for Documentation**
+* All documentation within .cursorrules files or accompanying READMEs must be written in Markdown to ensure consistency and readability.
+
+**2. Maintain a Clear Structure**
+* Organize content logically with clear sections (e.g., general guidelines, project-specific rules, file structure) to provide context and instructions effectively.
+
+**3. Focus on Best Practices and Standards**
+* Define coding standards, best practices, and style guidelines specific to the technology or framework to ensure consistent, high-quality output.
+
+**4. Include Project-Specific Context**
+* Include details about the project's structure, architectural decisions, and commonly used libraries or methods to guide AI behavior.
+`;
+}

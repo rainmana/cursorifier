@@ -1,0 +1,63 @@
+{
+  "name": "rulefy",
+  "version": "0.1.0",
+  "description": "Transform GitHub repositories into cursor rules instructions in markdown",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "bin": {
+    "rulefy": "./bin/rulefy.cjs"
+  },
+  "type": "module",
+  "files": [
+    "lib/**/*",
+    "bin/**/*"
+  ],
+  "scripts": {
+    "build": "rimraf lib && tsc -p tsconfig.json --sourceMap --declaration",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest",
+    "prepublishOnly": "npm run lint && npm run test && npm run build"
+  },
+  "keywords": [
+    "cursor",
+    "rules",
+    "ai",
+    "github",
+    "repository",
+    "llm",
+    "claude",
+    "cursor-rules"
+  ],
+  "author": "niklub",
+  "homepage": "https://github.com/niklub/rulefy",
+  "bugs": {
+    "url": "https://github.com/niklub/rulefy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niklub/rulefy.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "commander": "^13.1.0",
+    "js-tiktoken": "^1.0.19",
+    "picocolors": "^1.1.0",
+    "repomix": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^7.14.0",
+    "@typescript-eslint/parser": "^7.14.0",
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

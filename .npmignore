@@ -1,0 +1,38 @@
+# Source
+src/
+tests/
+
+# CI/CD
+.github/
+.travis.yml
+.gitlab-ci.yml
+.circleci/
+
+# Config files
+.eslintrc
+.eslintignore
+tsconfig.json
+.prettierrc
+vitest.config.ts
+jest.config.js
+
+# Git files
+.git/
+.gitignore
+
+# Development
+coverage/
+.vscode/
+.idea/
+*.log
+.DS_Store
+
+# Testing
+tests/
+**/*.test.ts
+**/*.spec.ts
+*-output/
+
+# Temporary files
+tmp/
+temp/
