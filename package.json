@@ -1,6 +1,6 @@
 {
   "name": "rulefy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Transform GitHub repositories into cursor rules instructions in markdown",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
