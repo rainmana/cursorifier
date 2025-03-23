@@ -9,7 +9,7 @@ export const run = async (): Promise<void> => {
     
     program
       .description('Rulefy - Transform GitHub repositories into cursor rules instructions')
-      .argument('<repo-path>', 'GitHub repository URL, owner/repo shorthand, or local repository path')
+      .argument('[repo-path]', 'GitHub repository URL, owner/repo shorthand, or local repository path', '.')
       .option('--include <patterns>', 'Include patterns for files (glob pattern, e.g., "**/*.py")')
       .action(async (repoPath: string, options) => {
         console.log(pc.bold(`\n🧩 Rulefy - Generating cursor rules for ${repoPath}\n`));
