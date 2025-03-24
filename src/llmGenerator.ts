@@ -144,6 +144,16 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
   
   let currentSummary = ''; // This will store our progressively built summary
   
+  // Helper function to extract content between <cursorrules> tags
+  function extractCursorrules(text: string): string {
+    const regex = /<cursorrules>([\s\S]*?)<\/cursorrules>/;
+    const match = text.match(regex);
+    if (!match) {
+      throw new Error('Response does not contain <cursorrules> tags. Make sure the model includes the required tags in its response.');
+    }
+    return match[1].trim();
+  }
+  
   // Process each chunk progressively
   console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
   console.log(pc.cyan('│          PROCESSING CHUNKS              │'));
@@ -156,8 +166,7 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
     const chunk = chunks[i];
     const isFirstChunk = i === 0;
     
-    const systemPrompt = `You are an expert at analyzing repositories and creating concise, effective Cursor AI rules based on repository contents. 
-Your task is to generate a .cursorrules file for the given repository based on the provided guidelines.`;
+    const systemPrompt = `You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.`;
     
     let userPrompt;
     
@@ -165,37 +174,109 @@ Your task is to generate a .cursorrules file for the given repository based on t
       // For the first chunk, start creating the rules
       userPrompt = `I want you to create a .cursorrules file for a repository. I'll provide the content in chunks.
 
-## First Repository Content Chunk:
+First, carefully review the following repository chunk:
+
+<repository_chunk>
 ${chunk}
+</repository_chunk>
 
-## Guidelines for Creating .cursorrules Files:
+Now, consider these guidelines for creating .cursorrules files:
+
+<guidelines>
 ${guidelines}
+</guidelines>
 
-Please generate initial cursor rules for this repository, following the guidelines provided.
-Focus on creating rules that are specific to this repository's structure, technologies, and patterns.
-Make sure the output is in valid Markdown format and ready to be used as a .cursorrules file.
-Ensure your response contains ONLY the initial .cursorrules content, with no introductory text, explanations, or markdown formatting tags like \`\`\`markdown at the beginning or end of your response - just the text that can be used directly in a .cursorrules file.`;
+Before generating the rules, analyze the repository content and structure. In your analysis, consider the following:
+
+1. List the main technologies, frameworks, and languages used in the repository.
+2. Write down specific coding patterns, naming conventions, or architectural decisions observed.
+3. Outline the overall structure of the codebase, including key directories and file types.
+4. Note any unique or project-specific practices that should be reflected in the rules.
+
+Present your analysis inside <repository_analysis> tags. This analysis will inform the rules you generate.
+
+After completing your analysis, generate the initial Cursor AI rules for this repository. Follow these important instructions:
+
+1. Make rules specific to this repository's structure, technologies, and patterns.
+2. Use \`@file\` syntax to cite specific files (e.g., \`@src/components/Button.tsx\`) when providing examples or referring to patterns.
+3. Include both generic best practices relevant to the repository AND specific guidelines directly inferred from the analyzed code.
+4. Organize the rules to reflect the actual structure and organization of the codebase.
+5. Be concise and straight to the point, avoiding unnecessary explanations.
+6. Ensure the output is in valid Markdown format, ready to be used as a .cursorrules file.
+
+Include your final .cursorrules content inside <cursorrules> tags.
+
+Example structure (replace with actual content):
+
+<cursorrules>
+# General Rules
+
+- Rule 1
+- Rule 2
+
+# Frontend Rules
+
+## Components
+- Component rule 1
+- Component rule 2
+
+## Styling
+- Styling rule 1
+- Styling rule 2
+
+# Backend Rules
+
+## API
+- API rule 1
+- API rule 2
+
+## Database
+- Database rule 1
+- Database rule 2
+</cursorrules>
+
+Now, proceed with your analysis and generation of the .cursorrules file.`;
     } else {
       // For subsequent chunks, enhance the existing summary
-      userPrompt = `Analyze the next repository content chunk and update the existing .cursorrules file.
+      userPrompt = `I want you to update the existing .cursorrules file based on the next repository chunk. I'll provide the current rules and the new content chunk.
 
-## Existing Cursor Rules:
+Here is the current .cursorrules file content:
+
+<current_rules>
 ${currentSummary}
+</current_rules>
 
-## Next Repository Content Chunk:
+Now, carefully review the following new repository chunk:
+
+<repository_chunk>
 ${chunk}
+</repository_chunk>
 
-## Guidelines for Creating .cursorrules Files:
+And here are the guidelines for creating .cursorrules files:
+
+<guidelines>
 ${guidelines}
+</guidelines>
 
-IMPORTANT INSTRUCTIONS:
-- Your response should be the complete, updated .cursorrules file.
-- Preserve all existing sections and content from the current rules.
-- Only add new information if the new chunk reveals patterns or guidelines not already covered.
-- If the new chunk doesn't provide any new insights, return the existing rules unchanged.
-- Maintain the same structure, formatting, and organization of the existing rules.
-- Do not include any explanatory text, meta-commentary, or markdown formatting tags in your response. Avoid phrases like "Here is the updated file:", "Based on the analyzed content...", or any other first-person commentary. Provide only the raw content that would go directly into a .cursorrules file.
-`;
+Before updating the rules, analyze this new repository chunk. In your analysis, consider the following:
+
+1. Are there any new technologies, frameworks, or languages revealed in this chunk that weren't covered before?
+2. Do you see any additional coding patterns, naming conventions, or architectural decisions not previously observed?
+3. Does this chunk provide more insight into the overall structure of the codebase?
+4. Are there any unique or project-specific practices in this chunk that should be reflected in the rules?
+
+Present your analysis inside <new_insights> tags. If this chunk doesn't reveal any new insights, indicate that.
+
+After completing your analysis, update the existing Cursor AI rules based on your findings. Follow these important instructions:
+
+1. DO NOT lose or overwrite any information from the existing rules. The existing rules contain valuable insights that must be preserved.
+2. Maintain the same structure, formatting, and organization as the current rules.
+3. Add new information ONLY if this chunk reveals patterns or guidelines not already covered.
+4. Use \`@file\` syntax to cite specific files (e.g., \`@src/components/Button.tsx\`) when providing examples or referring to new patterns.
+5. Be specific about code structure, including new classes, objects, and patterns identified in this chunk.
+6. If the new chunk doesn't provide any new insights, return the existing rules unchanged.
+
+Use previously generated .cursorrules content as a starting point and example of the output format. Include your final .cursorrules content inside <cursorrules> tags.`;
     }
 
     process.stdout.write(`${pc.blue('🔄')} Sending to Claude... `);
@@ -203,8 +284,8 @@ IMPORTANT INSTRUCTIONS:
     try {
       const startTime = Date.now();
       const response = await client.messages.create({
-        model: 'claude-3-5-sonnet-latest',
-        max_tokens: 4000,
+        model: 'claude-3-7-sonnet-latest',
+        max_tokens: 8000,
         system: systemPrompt,
         messages: [
           {
@@ -218,11 +299,8 @@ IMPORTANT INSTRUCTIONS:
       
       process.stdout.write(pc.green('✓\n'));
       
-      // Extract the response text
-      const content = response.content[0].text;
-      
-      // Update the current summary
-      currentSummary = isFirstChunk ? content : content;
+      // Update the current summary (store full content during processing)
+      currentSummary = response.content[0].text;
       
       // Save intermediate output to file in the specified directory
       const intermediateFileName = path.join(outputDir, `cursorrules_chunk_${i+1}_of_${chunks.length}.md`);
@@ -241,7 +319,8 @@ IMPORTANT INSTRUCTIONS:
   console.log(pc.green('│          PROCESSING COMPLETE            │'));
   console.log(pc.green('└─────────────────────────────────────────┘\n'));
   
-  return currentSummary;
+  // Only extract the cursorrules content at the very end
+  return extractCursorrules(currentSummary);
 }
 
 function generateMockResponse(repoContent: string): string {

@@ -64,6 +64,11 @@ export async function rulesGenerate(
 }
 
 function extractRepoName(repoPath: string): string {
+  // Handle current directory case
+  if (repoPath === '.') {
+    return path.basename(process.cwd());
+  }
+  
   // For local paths, use the directory name
   try {
     // Sync version to avoid Promise handling in this synchronous function
