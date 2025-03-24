@@ -166,7 +166,7 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
     const chunk = chunks[i];
     const isFirstChunk = i === 0;
     
-    const systemPrompt = `You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.`;
+    const systemPrompt = 'You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.';
     
     let userPrompt;
     
