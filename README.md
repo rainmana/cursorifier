@@ -18,6 +18,7 @@
 
 - 🚀 Analyze GitHub repositories or local codebases with a single command
 - 🧩 Intelligently extract project structure, conventions, and patterns
+- 📚 Handles large codebases that exceed the token limit for LLMs
 - 🤖 Generate tailored Cursor rules using Claude AI
 - 📝 Create production-ready .rules.mdc files for immediate use
 - 🔧 Customize analysis with flexible configuration options
@@ -92,7 +93,7 @@ Options:
 
 1. **Repository Conversion**: Uses repomix to convert GitHub repositories into a textual representation
 2. **Guidelines Integration**: Reads cursor rules guidelines from the specified file
-3. **LLM Generation**: Passes the repository content and guidelines to LLM
+3. **LLM Generation**: Passes the repository content and guidelines to LLM with progressive summarization
 4. **Output**: Saves the generated cursor rules to a markdown file
 
 ## Example Output

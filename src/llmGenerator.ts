@@ -192,17 +192,19 @@ Before generating the rules, analyze the repository content and structure. In yo
 2. Write down specific coding patterns, naming conventions, or architectural decisions observed.
 3. Outline the overall structure of the codebase, including key directories and file types.
 4. Note any unique or project-specific practices that should be reflected in the rules.
+5. Note any QA strategies, testing guidelines, or best practices for testing revealed in this chunk that should be reflected in the rules.
 
 Present your analysis inside <repository_analysis> tags. This analysis will inform the rules you generate.
 
 After completing your analysis, generate the initial Cursor AI rules for this repository. Follow these important instructions:
 
 1. Make rules specific to this repository's structure, technologies, and patterns.
-2. Use \`@file\` syntax to cite specific files (e.g., \`@src/components/Button.tsx\`) when providing examples or referring to patterns.
+2. Use \`@filename\` syntax to cite specific files when providing examples or referring to patterns. For example, use \`@src/components/Button.tsx\` to refer to the Button component.
 3. Include both generic best practices relevant to the repository AND specific guidelines directly inferred from the analyzed code.
 4. Organize the rules to reflect the actual structure and organization of the codebase.
 5. Be concise and straight to the point, avoiding unnecessary explanations.
-6. Ensure the output is in valid Markdown format, ready to be used as a .cursorrules file.
+6. Include any testing-related insights or best practices observed in the chunk, such as test structure, frameworks, or naming conventions. Be specific about how to create tests for the new code.
+7. Ensure the output is in valid Markdown format, ready to be used as a .cursorrules file.
 
 Include your final .cursorrules content inside <cursorrules> tags.
 
@@ -264,6 +266,8 @@ Before updating the rules, analyze this new repository chunk. In your analysis, 
 2. Do you see any additional coding patterns, naming conventions, or architectural decisions not previously observed?
 3. Does this chunk provide more insight into the overall structure of the codebase?
 4. Are there any unique or project-specific practices in this chunk that should be reflected in the rules?
+5. Are there any QA strategies, testing guidelines, or best practices for testing revealed in this chunk that should be reflected in the rules?
+
 
 Present your analysis inside <new_insights> tags. If this chunk doesn't reveal any new insights, indicate that.
 
@@ -272,9 +276,12 @@ After completing your analysis, update the existing Cursor AI rules based on you
 1. DO NOT lose or overwrite any information from the existing rules. The existing rules contain valuable insights that must be preserved.
 2. Maintain the same structure, formatting, and organization as the current rules.
 3. Add new information ONLY if this chunk reveals patterns or guidelines not already covered.
-4. Use \`@file\` syntax to cite specific files (e.g., \`@src/components/Button.tsx\`) when providing examples or referring to new patterns.
+4. Use \`@filename\` syntax to cite specific files when providing examples or referring to new patterns. For example, use \`@src/components/Button.tsx\` to refer to the Button component.
 5. Be specific about code structure, including new classes, objects, and patterns identified in this chunk.
 6. If the new chunk doesn't provide any new insights, return the existing rules unchanged.
+7. Be specific but avoid being overly verbose. Include code snippets only when they clarify expectations.
+8. Include any testing-related insights or best practices observed in the chunk, such as test structure, frameworks, or naming conventions. Be specific about how to create tests for the new code.
+
 
 Use previously generated .cursorrules content as a starting point and example of the output format. Include your final .cursorrules content inside <cursorrules> tags.`;
     }
