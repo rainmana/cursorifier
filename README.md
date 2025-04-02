@@ -58,6 +58,16 @@ rulefy https://github.com/fastapi/fastapi
 
 # Using local repository path
 rulefy ./my-local-project
+
+# Rulefy with specific description as an option
+rulefy --description "guidelines for extending the component using the base interface"
+
+# Rulefy the current directory with a description
+cd some/package
+rulefy --description "guidelines for extending the component using the base interface"
+
+# Specify rule type
+rulefy --rule-type "agent" --description "coding standards for React components"
 ```
 
 This will:
@@ -82,11 +92,13 @@ For more detailed instructions, see the [official Cursor documentation](https://
 
 ```
 Options:
-  --provider <provider>  LLM provider to use (default: "claude-sonnet-3.5-latest")
-  -o, --output <file>    Output file name (defaults to <repo-name>.rules.mdc)
-  --guidelines <file>    Path to cursor rules guidelines file (default: "./cursorrules-guidelines.md")
-  --include <patterns>   Include patterns for files (glob pattern, e.g., "**/*.py")
-  -h, --help             display help for command
+  --provider <provider>    LLM provider to use (default: "claude-sonnet-3.5-latest")
+  -o, --output <file>      Output file name (defaults to <repo-name>.rules.mdc)
+  --guidelines <file>      Path to cursor rules guidelines file (default: "./cursorrules-guidelines.md")
+  --include <patterns>     Include patterns for files (glob pattern, e.g., "**/*.py")
+  --description <text>     Description of what should be rulefied
+  --rule-type <type>       Type of rule to generate (auto, manual, agent, always)
+  -h, --help               display help for command
 ```
 
 ## How It Works

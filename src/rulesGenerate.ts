@@ -7,6 +7,8 @@ import { generateWithLLM } from './llmGenerator.js';
 
 interface RulesGenerateOptions {
   includePatterns?: string;
+  description?: string;
+  ruleType?: string;
 }
 
 export async function rulesGenerate(
@@ -38,7 +40,7 @@ export async function rulesGenerate(
     // 4. Read guidelines file
     let guidelinesText: string;
     try {
-      guidelinesText = await readGuidelines('./cursorrules-guidelines.md');
+      guidelinesText = await readGuidelines('./src/prompts/cursor_mdc.md');
     } catch (_error) {
       console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + _error + '. Using built-in guidelines.'));
       guidelinesText = generateMockGuidelines();
@@ -46,7 +48,13 @@ export async function rulesGenerate(
     
     console.log(pc.cyan('3. Generating cursor rules...'));
     // 5. Generate rules using LLM
-    const generatedRules = await generateWithLLM(repoText, guidelinesText, outputDir);
+    const generatedRules = await generateWithLLM(
+      repoText, 
+      guidelinesText, 
+      outputDir, 
+      options.description,
+      options.ruleType
+    );
     
     console.log(pc.cyan(`4. Writing rules to ${outputFile}...`));
     // 6. Write output to file

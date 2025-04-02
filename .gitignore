@@ -40,4 +40,5 @@ lerna-debug.log*
 # Temporary project output
 *-output/
 *.rules.mdc
-repomix-output.md
+# Private individual user cursor rules
+.cursor/rules/_*.mdc

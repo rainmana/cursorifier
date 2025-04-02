@@ -11,7 +11,9 @@ const CHUNK_OVERLAP = Number(process.env.CHUNK_OVERLAP || '50000');
 export async function generateWithLLM(
   repoContent: string,
   guidelines: string,
-  outputDir: string = '.'
+  outputDir: string = '.',
+  description?: string,
+  ruleType?: string
 ): Promise<string> {
   // If this is a test run with dummy API key, just return a mock response
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -20,7 +22,7 @@ export async function generateWithLLM(
     return generateMockResponse(repoContent);
   }
   
-  return await generateWithClaude(repoContent, guidelines, outputDir);
+  return await generateWithClaude(repoContent, guidelines, outputDir, description, ruleType);
 }
 
 /**
@@ -88,7 +90,7 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
   return chunks;
 }
 
-async function generateWithClaude(repoContent: string, guidelines: string, outputDir: string = '.'): Promise<string> {
+async function generateWithClaude(repoContent: string, guidelines: string, outputDir: string = '.', description?: string, ruleType?: string): Promise<string> {
   // Check for API key in environment
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -172,118 +174,94 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
     
     if (isFirstChunk) {
       // For the first chunk, start creating the rules
-      userPrompt = `I want you to create a .cursorrules file for a repository. I'll provide the content in chunks.
+      userPrompt = `I need your help to create a Cursor rule (.cursorrules) file for my project. Please follow this process:
 
-First, carefully review the following repository chunk:
+1. First, carefully read and understand this codebase chunk:
 
 <repository_chunk>
 ${chunk}
 </repository_chunk>
 
-Now, consider these guidelines for creating .cursorrules files:
+2. Now, review these guidelines for creating effective Cursor rules:
 
 <guidelines>
 ${guidelines}
 </guidelines>
 
-Before generating the rules, analyze the repository content and structure. In your analysis, consider the following:
+${description ? `3. I specifically want to create rules for: "${description}"` : ''}
+${ruleType ? `4. The rule type should be: "${ruleType}"` : ''}
 
-1. List the main technologies, frameworks, and languages used in the repository.
-2. Write down specific coding patterns, naming conventions, or architectural decisions observed.
-3. Outline the overall structure of the codebase, including key directories and file types.
-4. Note any unique or project-specific practices that should be reflected in the rules.
-5. Note any QA strategies, testing guidelines, or best practices for testing revealed in this chunk that should be reflected in the rules.
+${description || ruleType ? '5' : '3'}. Analyze the repository content and structure, considering:
+   - Main technologies, frameworks, and languages used
+   - Coding patterns, naming conventions, and architectural decisions
+   - Overall codebase structure including key directories and file types
+   - Project-specific practices and testing guidelines
+   - Guidelines and standards documented in comments or markdown files by developers
 
-Present your analysis inside <repository_analysis> tags. This analysis will inform the rules you generate.
+Present your analysis inside <repository_analysis> tags.
 
-After completing your analysis, generate the initial Cursor AI rules for this repository. Follow these important instructions:
-
-1. Make rules specific to this repository's structure, technologies, and patterns.
-2. Use \`@filename\` syntax to cite specific files when providing examples or referring to patterns. For example, use \`@src/components/Button.tsx\` to refer to the Button component.
-3. Include both generic best practices relevant to the repository AND specific guidelines directly inferred from the analyzed code.
-4. Organize the rules to reflect the actual structure and organization of the codebase.
-5. Be concise and straight to the point, avoiding unnecessary explanations.
-6. Include any testing-related insights or best practices observed in the chunk, such as test structure, frameworks, or naming conventions. Be specific about how to create tests for the new code.
-7. Ensure the output is in valid Markdown format, ready to be used as a .cursorrules file.
+${description || ruleType ? '6' : '4'}. Create a complete .cursorrules file that:
+   - Is specific to this repository's structure and technologies
+   - Includes best practices and guidelines from code, comments, and documentation
+   - Organizes rules to match the codebase structure
+   - Is concise and actionable
+   - Includes testing best practices and guidelines
+   - Uses valid Markdown format${ruleType ? `
+   - Follows the rule type: "${ruleType}"` : ''}${description ? `
+   - Addresses the specific request: "${description}"` : ''}
 
 Include your final .cursorrules content inside <cursorrules> tags.
 
-Example structure (replace with actual content):
+Example structure:
 
 <cursorrules>
-# General Rules
-
-- Rule 1
-- Rule 2
-
-# Frontend Rules
-
-## Components
-- Component rule 1
-- Component rule 2
-
-## Styling
-- Styling rule 1
-- Styling rule 2
-
-# Backend Rules
-
-## API
-- API rule 1
-- API rule 2
-
-## Database
-- Database rule 1
-- Database rule 2
-</cursorrules>
-
-Now, proceed with your analysis and generation of the .cursorrules file.`;
+...markdown content of the .cursorrules file, following the guidelines and analysis...
+</cursorrules>`;
     } else {
       // For subsequent chunks, enhance the existing summary
-      userPrompt = `I want you to update the existing .cursorrules file based on the next repository chunk. I'll provide the current rules and the new content chunk.
+      userPrompt = `I need your help to update a Cursor rule (.cursorrules) file based on a new chunk of my project:
 
-Here is the current .cursorrules file content:
+1. Here is the current .cursorrules file content:
 
 <current_rules>
 ${currentSummary}
 </current_rules>
 
-Now, carefully review the following new repository chunk:
+2. Now, carefully review this new repository chunk:
 
 <repository_chunk>
 ${chunk}
 </repository_chunk>
 
-And here are the guidelines for creating .cursorrules files:
+3. Review these guidelines for creating effective Cursor rules:
 
 <guidelines>
 ${guidelines}
 </guidelines>
 
-Before updating the rules, analyze this new repository chunk. In your analysis, consider the following:
+${description ? `4. Remember, I specifically want to create rules for: "${description}"` : ''}
+${ruleType ? `${description ? '5' : '4'}. The rule type should be: "${ruleType}"` : ''}
 
-1. Are there any new technologies, frameworks, or languages revealed in this chunk that weren't covered before?
-2. Do you see any additional coding patterns, naming conventions, or architectural decisions not previously observed?
-3. Does this chunk provide more insight into the overall structure of the codebase?
-4. Are there any unique or project-specific practices in this chunk that should be reflected in the rules?
-5. Are there any QA strategies, testing guidelines, or best practices for testing revealed in this chunk that should be reflected in the rules?
+${description || ruleType ? (description && ruleType ? '6' : '5') : '4'}. Analyze this new chunk for:
+   - New technologies, frameworks, or languages not previously covered
+   - Additional coding patterns, naming conventions, or architectural decisions
+   - Further insights into codebase structure
+   - Project-specific practices and testing guidelines
+   - Guidelines and standards documented in comments or markdown files by developers
 
+Present your analysis inside <new_insights> tags.
 
-Present your analysis inside <new_insights> tags. If this chunk doesn't reveal any new insights, indicate that.
+${description || ruleType ? (description && ruleType ? '7' : '6') : '5'}. Update the existing rules by:
+   - Preserving all valuable information from existing rules
+   - Maintaining the same structure and organization
+   - Adding new information only for patterns not already covered
+   - Being specific about code structure and patterns
+   - Including testing-related insights and best practices
+   - Being concise but comprehensive${ruleType ? `
+   - Following the rule type: "${ruleType}"` : ''}${description ? `
+   - Addressing the specific request: "${description}"` : ''}
 
-After completing your analysis, update the existing Cursor AI rules based on your findings. Follow these important instructions:
-
-1. DO NOT lose or overwrite any information from the existing rules. The existing rules contain valuable insights that must be preserved.
-2. Maintain the same structure, formatting, and organization as the current rules.
-3. Add new information ONLY if this chunk reveals patterns or guidelines not already covered.
-4. Use \`@filename\` syntax to cite specific files when providing examples or referring to new patterns. For example, use \`@src/components/Button.tsx\` to refer to the Button component.
-5. Be specific about code structure, including new classes, objects, and patterns identified in this chunk.
-6. If the new chunk doesn't provide any new insights, return the existing rules unchanged.
-7. Be specific but avoid being overly verbose. Include code snippets only when they clarify expectations.
-8. Include any testing-related insights or best practices observed in the chunk, such as test structure, frameworks, or naming conventions. Be specific about how to create tests for the new code.
-
-
-Use previously generated .cursorrules content as a starting point and example of the output format. Include your final .cursorrules content inside <cursorrules> tags.`;
+Include your final updated .cursorrules content inside <cursorrules> tags.`;
     }
 
     process.stdout.write(`${pc.blue('🔄')} Sending to Claude... `);
