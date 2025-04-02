@@ -40,10 +40,19 @@ export async function rulesGenerate(
     // 4. Read guidelines file
     let guidelinesText: string;
     try {
-      guidelinesText = await readGuidelines('./src/prompts/cursor_mdc.md');
+      guidelinesText = await readGuidelines('../src/prompts/cursor_mdc.md');
     } catch (_error) {
-      console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + _error + '. Using built-in guidelines.'));
-      guidelinesText = generateMockGuidelines();
+      // If not found in src/prompts, try with a path relative to the current file
+      try {
+        const modulePath = new URL(import.meta.url).pathname;
+        const moduleDir = path.dirname(modulePath);
+        const alternativePath = path.resolve(moduleDir, '../src/prompts/cursor_mdc.md');
+        
+        guidelinesText = await fs.readFile(alternativePath, 'utf-8');
+      } catch (innerError) {
+        console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + innerError + '. Using built-in guidelines.'));
+        guidelinesText = generateMockGuidelines();
+      }
     }
     
     console.log(pc.cyan('3. Generating cursor rules...'));

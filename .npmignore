@@ -1,5 +1,6 @@
 # Source
 src/
+!src/prompts/
 tests/
 
 # CI/CD

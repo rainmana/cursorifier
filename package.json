@@ -10,7 +10,8 @@
   "type": "module",
   "files": [
     "lib/**/*",
-    "bin/**/*"
+    "bin/**/*",
+    "src/prompts/**/*"
   ],
   "scripts": {
     "build": "rimraf lib && tsc -p tsconfig.json --sourceMap --declaration",
