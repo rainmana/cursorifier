@@ -3,10 +3,13 @@ import { getEncoding } from 'js-tiktoken';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import pc from 'picocolors';
+import readline from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
 
 // Environment variables for chunk configuration, with defaults
 const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || '100000');
 const CHUNK_OVERLAP = Number(process.env.CHUNK_OVERLAP || '50000');
+const costPerToken = 3e-6; // 3$ per million tokens
 
 export async function generateWithLLM(
   repoContent: string,
@@ -47,7 +50,7 @@ function formatTokenCount(count: number): string {
   return pc.red(formatted);
 }
 
-function chunkText(text: string, chunkSize: number, overlap: number): string[] {
+async function chunkText(text: string, chunkSize: number, overlap: number): Promise<string[]> {
   console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
   console.log(pc.cyan('│           CONTENT CHUNKING               │'));
   console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
@@ -63,7 +66,26 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
   console.log(`● Chunk size: ${formatTokenCount(chunkSize)} tokens`);
   console.log(`● Chunk overlap: ${formatTokenCount(overlap)} tokens\n`);
   
-  console.log(pc.cyan('Chunking document...'));
+  // Calculate and display the estimated cost
+  const estimatedCost = (totalTokens * costPerToken).toFixed(4);
+  console.log(pc.yellow(`● Estimated cost: $${estimatedCost} (${formatTokenCount(totalTokens)} tokens × $${costPerToken} per token)`));
+  
+  // Create a user dialog to confirm proceeding
+  const rl = readline.createInterface({ input, output });
+  
+  try {
+    const answer = await rl.question(pc.yellow('\nProceed with processing? (y/n): '));
+    const proceed = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+    
+    if (!proceed) {
+      console.log(pc.red('\nOperation cancelled by user.'));
+      process.exit(0);
+    }
+  } finally {
+    rl.close();
+  }
+  
+  console.log(pc.cyan('\nChunking document...'));
   
   let i = 0;
   while (i < tokens.length) {
@@ -102,7 +124,7 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
   });
   
   // Create chunks of the repository content
-  const chunks = chunkText(repoContent, CHUNK_SIZE, CHUNK_OVERLAP);
+  const chunks = await chunkText(repoContent, CHUNK_SIZE, CHUNK_OVERLAP);
   
   // Display token counts for each chunk in a table format
   console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));

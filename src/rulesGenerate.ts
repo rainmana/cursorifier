@@ -40,16 +40,18 @@ export async function rulesGenerate(
     // 4. Read guidelines file
     let guidelinesText: string;
     try {
-      guidelinesText = await readGuidelines('../src/prompts/cursor_mdc.md');
+      // First try with a path relative to the current module
+      const modulePath = new URL(import.meta.url).pathname;
+      const moduleDir = path.dirname(modulePath);
+      const moduleDirPath = path.resolve(moduleDir, '../src/prompts/cursor_mdc.md');
+      
+      guidelinesText = await fs.readFile(moduleDirPath, 'utf-8');
+      console.log(pc.green('✓ Successfully read guidelines from module path'));
     } catch (_error) {
-      // If not found in src/prompts, try with a path relative to the current file
+      // If not found in module path, try with a local path
       try {
-        const modulePath = new URL(import.meta.url).pathname;
-        const moduleDir = path.dirname(modulePath);
-        const alternativePath = path.resolve(moduleDir, '../src/prompts/cursor_mdc.md');
-        console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + _error + '. Try another path: ' + alternativePath));
-        
-        guidelinesText = await fs.readFile(alternativePath, 'utf-8');
+        guidelinesText = await readGuidelines('../src/prompts/cursor_mdc.md');
+        console.log(pc.green('✓ Successfully read guidelines from local path'));
       } catch (innerError) {
         console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + innerError + '. Using built-in guidelines.'));
         guidelinesText = generateMockGuidelines();
