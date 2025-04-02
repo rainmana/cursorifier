@@ -47,6 +47,7 @@ export async function rulesGenerate(
         const modulePath = new URL(import.meta.url).pathname;
         const moduleDir = path.dirname(modulePath);
         const alternativePath = path.resolve(moduleDir, '../src/prompts/cursor_mdc.md');
+        console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + _error + '. Try another path: ' + alternativePath));
         
         guidelinesText = await fs.readFile(alternativePath, 'utf-8');
       } catch (innerError) {
