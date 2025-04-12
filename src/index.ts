@@ -9,25 +9,76 @@ export const run = async (): Promise<void> => {
     
     program
       .description('Rulefy - Transform GitHub repositories into cursor rules instructions')
-      .argument('[repo-path]', 'GitHub repository URL, owner/repo shorthand, or local repository path', '.')
-      .option('--include <patterns>', 'Include patterns for files (glob pattern, e.g., "**/*.py")')
+      .argument('[repo-path]', 'Path to the repository', '.')
+      .allowExcessArguments(true)
+      .option('--provider <provider>', 'LLM model to use (default: "claude-sonnet-3.7-latest")')
       .option('--description <text>', 'Description of what should be rulefied')
       .option('--rule-type <type>', 'Type of rule to generate (auto, manual, agent, always)')
-      .action(async (repoPath: string, options) => {
-        console.log(pc.bold(`\n🧩 Rulefy - Generating cursor rules for ${repoPath}\n`));
-        
-        if (options.description) {
-          console.log(pc.cyan(`Rulefying with description: "${options.description}"\n`));
-        }
-        
-        await rulesGenerate(repoPath, {
-          includePatterns: options.include,
-          description: options.description,
-          ruleType: options.ruleType
-        });
-      });
+      .allowUnknownOption(true);
 
-    await program.parseAsync(process.argv);
+    program.parse(process.argv);
+
+    const options = program.opts();
+    const args = program.args;
+    
+    console.log(args);
+    console.log(options);
+    
+    // Find the repository path (first argument that doesn't start with --)
+    const repoPathIndex = args.findIndex(arg => !arg.startsWith('--'));
+    const repoPath = repoPathIndex >= 0 ? args[repoPathIndex] : '.';
+    
+    console.log(pc.bold(`\n🧩 Rulefy - Generating cursor rules for ${repoPath}\n`));
+    
+    if (options.description) {
+      console.log(pc.cyan(`Rulefying with description: "${options.description}"\n`));
+    }
+    
+    // Create a dictionary for additional options
+    const additionalOptions: Record<string, string> = {};
+    
+    // Known options already handled by Commander
+    const knownOptions = ['provider', 'description', 'rule-type'];
+    const knownOptionFlags = knownOptions.map(opt => `--${opt}`);
+    
+    // Parse additional options from args array
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      
+      // Skip the repository path
+      if (i === repoPathIndex) continue;
+      
+      // Check if it's an option (starts with --)
+      if (arg.startsWith('--') && !knownOptionFlags.includes(arg)) {
+        const optionName = arg.slice(2); // Remove '--'
+        
+        // Check if next argument exists and doesn't start with -- and isn't the repo path
+        if (i + 1 < args.length && !args[i + 1].startsWith('--') && i + 1 !== repoPathIndex) {
+          additionalOptions[optionName] = args[i + 1];
+          i++; // Skip the next argument since we've used it as a value
+        } else {
+          // Option without value (boolean flag)
+          additionalOptions[optionName] = 'true';
+        }
+      }
+    }
+    
+    // Log additional options if any
+    if (Object.keys(additionalOptions).length > 0) {
+      console.log(pc.cyan('Using additional options for repomix:'));
+      for (const [key, value] of Object.entries(additionalOptions)) {
+        console.log(pc.cyan(`  --${key}: ${value}`));
+      }
+      console.log();
+    }
+    
+    await rulesGenerate(repoPath, {
+      description: options.description,
+      ruleType: options.ruleType,
+      provider: options.provider,
+      additionalOptions
+    });
+
   } catch (error) {
     if (error instanceof Error) {
       console.error('Error:', error.message);

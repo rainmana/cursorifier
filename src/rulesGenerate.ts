@@ -6,9 +6,10 @@ import pc from 'picocolors';
 import { generateWithLLM } from './llmGenerator.js';
 
 interface RulesGenerateOptions {
-  includePatterns?: string;
   description?: string;
   ruleType?: string;
+  provider?: string;
+  additionalOptions?: Record<string, string>;
 }
 
 export async function rulesGenerate(
@@ -30,7 +31,7 @@ export async function rulesGenerate(
     // 3. Run repomix to get repo representation
     let repoText: string;
     try {
-      repoText = await runRepomix(repoPath, outputDir, options.includePatterns);
+      repoText = await runRepomix(repoPath, outputDir, options.additionalOptions);
     } catch (error) {
       console.log(pc.yellow(`Warning: Could not get actual repo content. Error: ${error}. Using mock content for testing.`));
       repoText = generateMockRepoContent(repoName);
@@ -65,7 +66,8 @@ export async function rulesGenerate(
       guidelinesText, 
       outputDir, 
       options.description,
-      options.ruleType
+      options.ruleType,
+      options.provider
     );
     
     console.log(pc.cyan(`4. Writing rules to ${outputFile}...`));
@@ -115,22 +117,25 @@ function extractRepoName(repoPath: string): string {
   return repoPath.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/^-+|-+$/g, '');
 }
 
-async function runRepomix(repoPath: string, outputDir: string, includePatterns?: string): Promise<string> {
+async function runRepomix(repoPath: string, outputDir: string, additionalOptions?: Record<string, string>): Promise<string> {
   try {
-    // Check if repoPath is a URL or local path
-    const isRemoteRepo = isRemoteRepository(repoPath);
     
     // Build repomix command based on whether it's a remote or local repository
-    let command = isRemoteRepo 
-      ? `npx repomix --remote ${repoPath}` 
-      : `npx repomix ${repoPath}`;
+    let command = `npx repomix ${repoPath}`;
     
-    if (includePatterns) {
-      command += ` --include "${includePatterns}"`;
+    // Add any additional options to the command
+    if (additionalOptions) {
+      for (const [key, value] of Object.entries(additionalOptions)) {
+        if (value === 'true') {
+          command += ` --${key}`;
+        } else {
+          command += ` --${key} "${value}"`;
+        }
+      }
     }
     
     // Add output directory to command
-    const outputFilePath = path.join(outputDir, 'repomix-output.xml');
+    const outputFilePath = path.join(outputDir, 'repomix-output');
     command += ` --output "${outputFilePath}"`;
     
     // Display the command being executed

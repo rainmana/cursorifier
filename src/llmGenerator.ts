@@ -8,7 +8,6 @@ import { stdin as input, stdout as output } from 'node:process';
 
 // Environment variables for chunk configuration, with defaults
 const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || '100000');
-const CHUNK_OVERLAP = Number(process.env.CHUNK_OVERLAP || '50000');
 const costPerToken = 3e-6; // 3$ per million tokens
 
 export async function generateWithLLM(
@@ -16,7 +15,8 @@ export async function generateWithLLM(
   guidelines: string,
   outputDir: string = '.',
   description?: string,
-  ruleType?: string
+  ruleType?: string,
+  provider: string = 'claude-3-7-sonnet-latest'
 ): Promise<string> {
   // If this is a test run with dummy API key, just return a mock response
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -25,7 +25,7 @@ export async function generateWithLLM(
     return generateMockResponse(repoContent);
   }
   
-  return await generateWithClaude(repoContent, guidelines, outputDir, description, ruleType);
+  return await generateWithClaude(repoContent, guidelines, outputDir, description, ruleType, provider);
 }
 
 /**
@@ -50,7 +50,19 @@ function formatTokenCount(count: number): string {
   return pc.red(formatted);
 }
 
-async function chunkText(text: string, chunkSize: number, overlap: number): Promise<string[]> {
+/**
+ * Calculate the number of chunks needed for processing
+ */
+function calculateChunkCount(totalTokens: number, chunkSize: number): number {
+  if (totalTokens <= chunkSize) return 1;
+  
+  return Math.ceil(totalTokens / chunkSize);
+}
+
+/**
+ * Iterator that yields one chunk at a time to save memory
+ */
+async function* chunkIterator(text: string, chunkSize: number) {
   console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
   console.log(pc.cyan('│           CONTENT CHUNKING               │'));
   console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
@@ -60,11 +72,9 @@ async function chunkText(text: string, chunkSize: number, overlap: number): Prom
   
   const tokens = encoding.encode(text);
   const totalTokens = tokens.length;
-  const chunks: string[] = [];
   
   console.log(`● Document size: ${formatTokenCount(totalTokens)} tokens`);
   console.log(`● Chunk size: ${formatTokenCount(chunkSize)} tokens`);
-  console.log(`● Chunk overlap: ${formatTokenCount(overlap)} tokens\n`);
   
   // Calculate and display the estimated cost
   const estimatedCost = (totalTokens * costPerToken).toFixed(4);
@@ -85,34 +95,36 @@ async function chunkText(text: string, chunkSize: number, overlap: number): Prom
     rl.close();
   }
   
-  console.log(pc.cyan('\nChunking document...'));
+  // Calculate the total number of chunks for progress reporting
+  const totalChunks = calculateChunkCount(totalTokens, chunkSize);
+  console.log(pc.green(`✓ Will process ${totalChunks} chunks\n`));
   
+  // Yield chunks one at a time
   let i = 0;
+  let chunkIndex = 0;
+  
   while (i < tokens.length) {
     // Get the current chunk of tokens
     const chunkTokens = tokens.slice(i, Math.min(i + chunkSize, tokens.length));
     const chunk = encoding.decode(chunkTokens);
-    chunks.push(chunk);
     
-    // Show chunking progress
-    const progress = Math.min(i + chunkSize, tokens.length) / tokens.length;
-    process.stdout.write(`\r${pc.cyan('Progress:')} ${progressBar(progress, 1)}`);
+    // Yield the current chunk along with its metadata
+    yield {
+      chunk,
+      index: chunkIndex,
+      tokenCount: chunkTokens.length,
+      totalChunks
+    };
     
-    // Move forward, accounting for overlap
-    i += chunkSize - overlap;
-    if (i >= tokens.length) break;
-    
-    // Ensure we don't go backward if overlap is too large
-    i = Math.max(i, 0);
+    // Move forward to the next chunk (no overlap)
+    i += chunkSize;
+    chunkIndex++;
   }
   
   process.stdout.write('\n\n');
-  console.log(pc.green(`✓ Chunking complete! Created ${chunks.length} chunks\n`));
-  
-  return chunks;
 }
 
-async function generateWithClaude(repoContent: string, guidelines: string, outputDir: string = '.', description?: string, ruleType?: string): Promise<string> {
+async function generateWithClaude(repoContent: string, guidelines: string, outputDir: string = '.', description?: string, ruleType?: string, provider: string = 'claude-3-7-sonnet-latest'): Promise<string> {
   // Check for API key in environment
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -122,50 +134,8 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
   const client = new Anthropic({
     apiKey,
   });
-  
-  // Create chunks of the repository content
-  const chunks = await chunkText(repoContent, CHUNK_SIZE, CHUNK_OVERLAP);
-  
-  // Display token counts for each chunk in a table format
-  console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
-  console.log(pc.cyan('│          CHUNK INFORMATION              │'));
-  console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
-  
-  // Fixed table width columns
-  const chunkColWidth = 10;      // Width of "Chunk" column
-  const tokenColWidth = 16;      // Width of "Token Count" column
-  const sizeColWidth = 29;      // Width of "Size" column
-  
-  // Create consistent table borders and headers
-  console.log(pc.cyan(`┌${'─'.repeat(chunkColWidth)}┬${'─'.repeat(tokenColWidth)}┬${'─'.repeat(sizeColWidth)}┐`));
-  console.log(pc.cyan(`│ ${'Chunk'.padEnd(chunkColWidth-2)} │ ${'Token Count'.padEnd(tokenColWidth-2)} │ ${'Size'.padEnd(sizeColWidth-2)} │`));
-  console.log(pc.cyan(`├${'─'.repeat(chunkColWidth)}┼${'─'.repeat(tokenColWidth)}┼${'─'.repeat(sizeColWidth)}┤`));
-  
-  const encoding = getEncoding('cl100k_base');
-  chunks.forEach((chunk, index) => {
-    const tokenCount = encoding.encode(chunk).length;
-    const percentage = (tokenCount / CHUNK_SIZE * 100).toFixed(1);
-    
-    // Create a fixed-width progress bar with proper padding
-    const barWidth = 15;
-    const filledLength = Math.round(barWidth * (tokenCount / CHUNK_SIZE));
-    const filled = '█'.repeat(Math.min(filledLength, barWidth));
-    const empty = '░'.repeat(Math.max(0, barWidth - filledLength));
-    const bar = filled + empty;
-    
-    // Format the percentage with consistent spacing
-    const percentText = `${percentage}%`;
-    
-    // Ensure consistent column widths matching header widths
-    const chunkCol = String(index+1).padEnd(chunkColWidth-2);
-    const tokenCol = formatTokenCount(tokenCount).padEnd(tokenColWidth-2);
-    const sizeCol = `${bar} ${percentText}`.padEnd(sizeColWidth-2);
-    
-    console.log(pc.cyan(`│ ${chunkCol} │ ${tokenCol} │ ${sizeCol} │`));
-  });
-  
-  console.log(pc.cyan(`└${'─'.repeat(chunkColWidth)}┴${'─'.repeat(tokenColWidth)}┴${'─'.repeat(sizeColWidth)}┘\n`));
-  
+
+  // Process text chunk by chunk using the iterator
   let currentSummary = ''; // This will store our progressively built summary
   
   // Helper function to extract content between <cursorrules> tags
@@ -178,17 +148,19 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
     return match[1].trim();
   }
   
-  // Process each chunk progressively
-  console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
-  console.log(pc.cyan('│          PROCESSING CHUNKS              │'));
-  console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
+  // Create a chunk iterator to process one chunk at a time
+  const chunkGen = chunkIterator(repoContent, CHUNK_SIZE);
   
-  for (let i = 0; i < chunks.length; i++) {
-    const chunkDisplay = `[${i+1}/${chunks.length}]`;
-    console.log(`${pc.yellow('⟳')} Processing chunk ${pc.yellow(chunkDisplay)} ${progressBar(i+1, chunks.length)}`);
+  for await (const { chunk, index, tokenCount, totalChunks } of chunkGen) {
+    const chunkDisplay = `[${index+1}/${totalChunks}]`;
+    console.log(`${pc.yellow('⟳')} Processing chunk ${pc.yellow(chunkDisplay)} ${progressBar(index+1, totalChunks)}`);
     
-    const chunk = chunks[i];
-    const isFirstChunk = i === 0;
+    // Display chunk information 
+    console.log(pc.cyan(`┌${'─'.repeat(58)}┐`));
+    console.log(pc.cyan(`│ Chunk: ${String(index+1).padEnd(10)} Token Count: ${formatTokenCount(tokenCount).padEnd(12)} │`));
+    console.log(pc.cyan(`└${'─'.repeat(58)}┘\n`));
+    
+    const isFirstChunk = index === 0;
     
     const systemPrompt = 'You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.';
     
@@ -286,12 +258,12 @@ ${description || ruleType ? (description && ruleType ? '7' : '6') : '5'}. Update
 Include your final updated .cursorrules content inside <cursorrules> tags.`;
     }
 
-    process.stdout.write(`${pc.blue('🔄')} Sending to Claude... `);
+    process.stdout.write(`${pc.blue('🔄')} Sending to Claude ${provider}... `);
     
     try {
       const startTime = Date.now();
       const response = await client.messages.create({
-        model: 'claude-3-7-sonnet-latest',
+        model: provider,
         max_tokens: 8000,
         system: systemPrompt,
         messages: [
@@ -301,24 +273,22 @@ Include your final updated .cursorrules content inside <cursorrules> tags.`;
           }
         ]
       });
+      currentSummary = response.content[0].text;
       const endTime = Date.now();
       const processingTime = ((endTime - startTime) / 1000).toFixed(2);
       
       process.stdout.write(pc.green('✓\n'));
       
-      // Update the current summary (store full content during processing)
-      currentSummary = response.content[0].text;
-      
       // Save intermediate output to file in the specified directory
-      const intermediateFileName = path.join(outputDir, `cursorrules_chunk_${i+1}_of_${chunks.length}.md`);
+      const intermediateFileName = path.join(outputDir, `cursorrules_chunk_${index+1}_of_${totalChunks}.md`);
       await fs.writeFile(intermediateFileName, currentSummary);
       console.log(`${pc.green('✓')} Saved intermediate output to ${pc.blue(intermediateFileName)} ${pc.gray(`(${processingTime}s)`)}\n`);
     } catch (error) {
       process.stdout.write(pc.red('✗\n'));
       if (error instanceof Error) {
-        throw new Error(`${pc.red('Error generating with Claude on chunk')} ${i+1}: ${error.message}`);
+        throw new Error(`${pc.red('Error generating with Claude on chunk')} ${index+1}: ${error.message}`);
       }
-      throw new Error(`${pc.red('Unknown error occurred while generating with Claude on chunk')} ${i+1}`);
+      throw new Error(`${pc.red('Unknown error occurred while generating with Claude on chunk')} ${index+1}`);
     }
   }
   

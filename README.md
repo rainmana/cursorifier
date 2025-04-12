@@ -47,35 +47,50 @@ export ANTHROPIC_API_KEY='your-anthropic-api-key'
 The basic command structure is:
 
 ```bash
-rulefy <repo-url-or-path>
+rulefy <repo-path>
 ```
 
 Examples:
 
 ```bash
-# Using GitHub URL
-rulefy https://github.com/fastapi/fastapi
+# Inside a repository
+rulefy
 
 # Using local repository path
-rulefy ./my-local-project
+rulefy ./my-local-project/subdir
+
+# Using GitHub URL
+rulefy --remote https://github.com/fastapi/fastapi
 
 # Rulefy with specific description as an option
 rulefy --description "guidelines for extending the component using the base interface"
 
-# Rulefy the current directory with a description
-cd some/package
-rulefy --description "guidelines for extending the component using the base interface"
-
-# Specify rule type
+# Specify Cursor AI rule type
 rulefy --rule-type "agent" --description "coding standards for React components"
 ```
 
 This will:
-1. Fetch the repository content using repomix
-2. Read the cursor rules guidelines
-3. Generate cursor rules using Claude Sonnet 3.5
-4. Save the output to a `<repo-name>.rules.mdc` file
+1. Fetch the repository content
+2. Based on the content, generate rules for Cursor AI
+3. Save the output to a `<repo-name>.rules.mdc` file
 
+### Options
+
+```
+Options:
+  --provider <provider>    LLM model to use (default: "claude-sonnet-3.7-latest") (currently only claude models are supported)
+  -o, --output <file>      Output file name (defaults to <repo-name>.rules.mdc)
+  --guidelines <file>      Path to cursor rules guidelines file (default: "./cursorrules-guidelines.md")
+  --description <text>     Description of what should be rulefied
+  --rule-type <type>       Type of rule to generate (auto, manual, agent, always)
+  -h, --help               display help for command
+```
+
+`rulefy` supports [all options supported by `repomix`](https://github.com/yamadashy/repomix/tree/main?tab=readme-ov-file#-usage). For example, select specific files:
+
+```bash
+rulefy --include "src/**/*.ts" --compress
+```
 
 ## Installing Rules in Cursor
 
@@ -83,30 +98,10 @@ After generating your rules file, you'll need to install it in Cursor:
 
 1. Open Cursor editor
 2. Go to Settings > AI > Rules
-3. Click "Add Rules File" and select your generated `.rules.mdc` file
+3. Click "Add Rules File" and select your generated `<filename>.rules.mdc` file
 4. Restart Cursor to apply the new rules
 
 For more detailed instructions, see the [official Cursor documentation](https://docs.cursor.com/context/rules-for-ai).
-
-### Options
-
-```
-Options:
-  --provider <provider>    LLM provider to use (default: "claude-sonnet-3.5-latest")
-  -o, --output <file>      Output file name (defaults to <repo-name>.rules.mdc)
-  --guidelines <file>      Path to cursor rules guidelines file (default: "./cursorrules-guidelines.md")
-  --include <patterns>     Include patterns for files (glob pattern, e.g., "**/*.py")
-  --description <text>     Description of what should be rulefied
-  --rule-type <type>       Type of rule to generate (auto, manual, agent, always)
-  -h, --help               display help for command
-```
-
-## How It Works
-
-1. **Repository Conversion**: Uses repomix to convert GitHub repositories into a textual representation
-2. **Guidelines Integration**: Reads cursor rules guidelines from the specified file
-3. **LLM Generation**: Passes the repository content and guidelines to LLM with progressive summarization
-4. **Output**: Saves the generated cursor rules to a markdown file
 
 ## Example Output
 
@@ -127,6 +122,18 @@ This project is a TypeScript application that...
 - Place core logic in the `src/` directory
 ...
 ```
+
+## Best Practices
+
+### Minimize context length, cost and rate limits
+
+If you encounter rate limits or ihigh costs, try to minimize the context length using the following ways:
+
+- Use `rulefy --compress` to compress the context length
+- Use `rulefy --include` to include only the files you need with globs
+- Use `rulefy --exclude` to exclude the files you don't need with globs
+- Specify the size of the chunks via `CHUNK_SIZE=1024` environment variable.
+
 
 ## Contributing
 
