@@ -9,6 +9,7 @@ interface RulesGenerateOptions {
   description?: string;
   ruleType?: string;
   provider?: string;
+  chunkSize?: number;
   additionalOptions?: Record<string, string>;
 }
 
@@ -67,7 +68,8 @@ export async function rulesGenerate(
       outputDir, 
       options.description,
       options.ruleType,
-      options.provider
+      options.provider,
+      options.chunkSize
     );
     
     console.log(pc.cyan(`4. Writing rules to ${outputFile}...`));

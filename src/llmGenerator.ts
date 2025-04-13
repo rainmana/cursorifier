@@ -16,7 +16,8 @@ export async function generateWithLLM(
   outputDir: string = '.',
   description?: string,
   ruleType?: string,
-  provider: string = 'claude-3-7-sonnet-latest'
+  provider: string = 'claude-3-7-sonnet-latest',
+  chunkSize: number = CHUNK_SIZE,
 ): Promise<string> {
   // If this is a test run with dummy API key, just return a mock response
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -25,7 +26,7 @@ export async function generateWithLLM(
     return generateMockResponse(repoContent);
   }
   
-  return await generateWithClaude(repoContent, guidelines, outputDir, description, ruleType, provider);
+  return await generateWithClaude(repoContent, guidelines, outputDir, description, ruleType, provider, chunkSize);
 }
 
 /**
@@ -62,7 +63,7 @@ function calculateChunkCount(totalTokens: number, chunkSize: number): number {
 /**
  * Iterator that yields one chunk at a time to save memory
  */
-async function* chunkIterator(text: string, chunkSize: number) {
+async function* chunkIterator(text: string, chunkSize?: number) {
   console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
   console.log(pc.cyan('│           CONTENT CHUNKING               │'));
   console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
@@ -72,9 +73,10 @@ async function* chunkIterator(text: string, chunkSize: number) {
   
   const tokens = encoding.encode(text);
   const totalTokens = tokens.length;
+  const cSize = chunkSize || CHUNK_SIZE;
   
   console.log(`● Document size: ${formatTokenCount(totalTokens)} tokens`);
-  console.log(`● Chunk size: ${formatTokenCount(chunkSize)} tokens`);
+  console.log(`● Chunk size: ${formatTokenCount(cSize)} tokens`);
   
   // Calculate and display the estimated cost
   const estimatedCost = (totalTokens * costPerToken).toFixed(4);
@@ -96,7 +98,7 @@ async function* chunkIterator(text: string, chunkSize: number) {
   }
   
   // Calculate the total number of chunks for progress reporting
-  const totalChunks = calculateChunkCount(totalTokens, chunkSize);
+  const totalChunks = calculateChunkCount(totalTokens, chunkSize || CHUNK_SIZE);
   console.log(pc.green(`✓ Will process ${totalChunks} chunks\n`));
   
   // Yield chunks one at a time
@@ -105,7 +107,7 @@ async function* chunkIterator(text: string, chunkSize: number) {
   
   while (i < tokens.length) {
     // Get the current chunk of tokens
-    const chunkTokens = tokens.slice(i, Math.min(i + chunkSize, tokens.length));
+    const chunkTokens = tokens.slice(i, Math.min(i + cSize, tokens.length));
     const chunk = encoding.decode(chunkTokens);
     
     // Yield the current chunk along with its metadata
@@ -117,14 +119,14 @@ async function* chunkIterator(text: string, chunkSize: number) {
     };
     
     // Move forward to the next chunk (no overlap)
-    i += chunkSize;
+    i += cSize;
     chunkIndex++;
   }
   
   process.stdout.write('\n\n');
 }
 
-async function generateWithClaude(repoContent: string, guidelines: string, outputDir: string = '.', description?: string, ruleType?: string, provider: string = 'claude-3-7-sonnet-latest'): Promise<string> {
+async function generateWithClaude(repoContent: string, guidelines: string, outputDir: string = '.', description?: string, ruleType?: string, provider: string = 'claude-3-7-sonnet-latest', chunkSize?: number): Promise<string> {
   // Check for API key in environment
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -149,7 +151,7 @@ async function generateWithClaude(repoContent: string, guidelines: string, outpu
   }
   
   // Create a chunk iterator to process one chunk at a time
-  const chunkGen = chunkIterator(repoContent, CHUNK_SIZE);
+  const chunkGen = chunkIterator(repoContent, chunkSize);
   
   for await (const { chunk, index, tokenCount, totalChunks } of chunkGen) {
     const chunkDisplay = `[${index+1}/${totalChunks}]`;

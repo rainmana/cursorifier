@@ -14,16 +14,14 @@ export const run = async (): Promise<void> => {
       .option('--provider <provider>', 'LLM model to use (default: "claude-sonnet-3.7-latest")')
       .option('--description <text>', 'Description of what should be rulefied')
       .option('--rule-type <type>', 'Type of rule to generate (auto, manual, agent, always)')
+      .option('--chunk-size <size>', 'Chunk size for the repository to be processed in one go (default: 100000)', '100000')
       .allowUnknownOption(true);
 
     program.parse(process.argv);
 
     const options = program.opts();
     const args = program.args;
-    
-    console.log(args);
-    console.log(options);
-    
+
     // Find the repository path (first argument that doesn't start with --)
     const repoPathIndex = args.findIndex(arg => !arg.startsWith('--'));
     const repoPath = repoPathIndex >= 0 ? args[repoPathIndex] : '.';
@@ -63,19 +61,11 @@ export const run = async (): Promise<void> => {
       }
     }
     
-    // Log additional options if any
-    if (Object.keys(additionalOptions).length > 0) {
-      console.log(pc.cyan('Using additional options for repomix:'));
-      for (const [key, value] of Object.entries(additionalOptions)) {
-        console.log(pc.cyan(`  --${key}: ${value}`));
-      }
-      console.log();
-    }
-    
     await rulesGenerate(repoPath, {
       description: options.description,
       ruleType: options.ruleType,
       provider: options.provider,
+      chunkSize: options.chunkSize,
       additionalOptions
     });
 
