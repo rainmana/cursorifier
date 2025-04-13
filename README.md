@@ -132,7 +132,7 @@ If you encounter rate limits or ihigh costs, try to minimize the context length 
 - Use `rulefy --compress` to compress the context length
 - Use `rulefy --include` to include only the files you need with globs
 - Use `rulefy --exclude` to exclude the files you don't need with globs
-- Specify the size of the chunks via `CHUNK_SIZE=1024` environment variable.
+- Control the size of the chunk being processed by one go by using the `--chunk-size` option. (default is `--chunk-size 100000`)
 
 
 ## Contributing
@@ -146,6 +146,7 @@ This project is inspired by and builds upon the work of:
 
 - [repomix](https://github.com/yamadashy/repomix) - A tool for converting repositories into textual representations
 - [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) - A curated list of cursor rules for different projects and languages
+- [cursor-custom-agents-rules-generator](https://github.com/bmadcode/cursor-custom-agents-rules-generator) - best practices for Cursor custom agents and rules generator
 
 We're grateful to these projects for their contributions to the developer tooling ecosystem.
 
