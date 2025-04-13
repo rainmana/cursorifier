@@ -63,7 +63,12 @@ function calculateChunkCount(totalTokens: number, chunkSize: number): number {
 /**
  * Iterator that yields one chunk at a time to save memory
  */
-async function* chunkIterator(text: string, chunkSize?: number) {
+async function* chunkIterator(text: string, chunkSize?: number): AsyncGenerator<{
+  chunk: string;
+  index: number;
+  tokenCount: number;
+  totalChunks: number;
+}, void, unknown> {
   console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
   console.log(pc.cyan('│           CONTENT CHUNKING               │'));
   console.log(pc.cyan('└─────────────────────────────────────────┘\n'));

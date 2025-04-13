@@ -52,6 +52,7 @@ export async function rulesGenerate(
     } catch (_error) {
       // If not found in module path, try with a local path
       try {
+        console.debug(`Error: ${_error}. Trying to read guidelines from local path...`);
         guidelinesText = await readGuidelines('../src/prompts/cursor_mdc.md');
         console.log(pc.green('✓ Successfully read guidelines from local path'));
       } catch (innerError) {
@@ -160,22 +161,6 @@ async function runRepomix(repoPath: string, outputDir: string, additionalOptions
     }
     throw new Error('Unknown error occurred while running repomix');
   }
-}
-
-// Helper function to determine if the path is a remote repository
-function isRemoteRepository(repoPath: string): boolean {
-  // Check for GitHub URL format
-  if (repoPath.startsWith('http://') || repoPath.startsWith('https://')) {
-    return true;
-  }
-  
-  // Check for shorthand format (e.g., 'owner/repo')
-  if (/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/.test(repoPath)) {
-    return true;
-  }
-  
-  // Otherwise consider it a local path
-  return false;
 }
 
 async function readGuidelines(guidelinesPath: string): Promise<string> {
