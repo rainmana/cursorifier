@@ -80,7 +80,7 @@ async function* chunkIterator(text: string, chunkSize?: number) {
   
   // Calculate and display the estimated cost
   const estimatedCost = (totalTokens * costPerToken).toFixed(4);
-  console.log(pc.yellow(`● Estimated cost: $${estimatedCost} (${formatTokenCount(totalTokens)} tokens × $${costPerToken} per token)`));
+  console.log(pc.yellow(`● Estimated input processing cost: $${estimatedCost} (${formatTokenCount(totalTokens)} tokens × $${costPerToken} per token)`));
   
   // Create a user dialog to confirm proceeding
   const rl = readline.createInterface({ input, output });
@@ -207,6 +207,7 @@ ${description || ruleType ? '6' : '4'}. Create a complete .cursorrules file that
    - Addresses the specific request: "${description}"` : ''}
 
 Include your final .cursorrules content inside <cursorrules> tags.
+Be concise - the final cursorrules file text must be not more than one page long.
 
 Example structure:
 
@@ -257,7 +258,8 @@ ${description || ruleType ? (description && ruleType ? '7' : '6') : '5'}. Update
    - Following the rule type: "${ruleType}"` : ''}${description ? `
    - Addressing the specific request: "${description}"` : ''}
 
-Include your final updated .cursorrules content inside <cursorrules> tags.`;
+Include your final updated .cursorrules content inside <cursorrules> tags.
+Be concise - the final cursorrules file text must be not more than one page long.`;
     }
 
     process.stdout.write(`${pc.blue('🔄')} Sending to Claude ${provider}... `);
