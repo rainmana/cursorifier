@@ -8,6 +8,10 @@ on:
       - 'CHANGELOG.md'
       - '*.md'
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   version-tag:
     runs-on: ubuntu-latest
