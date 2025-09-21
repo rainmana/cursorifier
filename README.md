@@ -112,6 +112,23 @@ cursorifier https://github.com/facebook/react --output-format cline
 - Team consistency and best practices
 - Focus on development workflow
 
+## 🛡️ Reliability Features
+
+### **Automatic Rate Limit Handling**
+- **Smart Retries**: Automatically retries on rate limits with exponential backoff (2s, 4s, 8s)
+- **Configurable Delays**: Control chunk processing speed with `--chunk-delay`
+- **Progress Tracking**: Clear feedback on retry attempts and delays
+
+### **Robust Text Processing**
+- **Token Sanitization**: Automatically removes problematic tokens like `<|endoftext|>`
+- **Large Repository Support**: Handles repositories with millions of tokens
+- **Chunk Processing**: Breaks large repositories into manageable chunks
+
+### **Environment Variable Support**
+- **Seamless Integration**: Automatically picks up API keys from environment variables
+- **Multiple Providers**: Supports `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `LOCAL_API_KEY`
+- **Fallback Logic**: CLI options override environment variables when provided
+
 ## ✨ What Makes Cursorifier Special?
 
 <table>
@@ -225,6 +242,12 @@ cursorifier --repomix-file ./my-repo-output.txt
 
 # Use repomix file with specific provider
 cursorifier --repomix-file ./output.txt --provider openai --model gpt-4o
+
+# Handle rate limiting with custom delays
+cursorifier . --chunk-delay 10000  # 10 second delays between chunks
+
+# Process large repository with smaller chunks and longer delays
+cursorifier . --chunk-size 50000 --chunk-delay 8000
 ```
 
 This will:
@@ -246,6 +269,7 @@ Options:
   --rule-type <type>       Type of rule to generate (auto, manual, agent, always)
   --output-format <format> Output format for rules (cursor, cline) (default: cursor)
   --chunk-size <size>      Chunk size for processing (default: 100000)
+  --chunk-delay <ms>       Delay between chunks in milliseconds to avoid rate limits (default: 5000)
   --repomix-file <path>    Path to existing repomix output file (skips repomix execution)
   --list-providers         List available providers and their models
   -h, --help               display help for command
@@ -377,11 +401,14 @@ This project is a TypeScript application that...
 
 ### Minimize context length, cost and rate limits
 
-If you encounter rate limits or ihigh costs, try to minimize the context length using the following ways:
+If you encounter rate limits or high costs, try to minimize the context length using the following ways:
 
-- Use `rulefy --compress` to compress the context length
-- Use `rulefy --include` to include only the files you need with globs
-- Use `rulefy --exclude` to exclude the files you don't need with globs
+- Use `--chunk-size` to process smaller chunks (e.g., `--chunk-size 50000`)
+- Use `--chunk-delay` to add delays between chunks (e.g., `--chunk-delay 10000`)
+- Cursorifier automatically retries on rate limits with exponential backoff
+- Use `--repomix-file` to reuse existing repository analysis
+- Use `repomix --include` to include only the files you need with globs
+- Use `repomix --exclude` to exclude the files you don't need with globs
 - Control the size of the chunk being processed by one go by using the `--chunk-size` option. (default is `--chunk-size 100000`)
 
 
