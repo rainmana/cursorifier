@@ -8,6 +8,7 @@ interface RulesGenerateOptions {
     baseURL?: string;
     maxTokens?: number;
     temperature?: number;
+    region?: string;
     chunkSize?: number;
     chunkDelay?: number;
     repomixFile?: string;

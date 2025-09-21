@@ -12,6 +12,7 @@ export interface LLMProviderConfig {
   maxTokens?: number;
   temperature?: number;
   timeout?: number;
+  region?: string; // For AWS Bedrock
 }
 
 export interface LLMMessage {
@@ -70,7 +71,7 @@ export interface LLMProvider {
   getAvailableModels(): string[];
 }
 
-export type ProviderType = 'anthropic' | 'openai' | 'local';
+export type ProviderType = 'anthropic' | 'openai' | 'local' | 'bedrock';
 
 export interface ProviderRegistry {
   register(provider: LLMProvider): void;

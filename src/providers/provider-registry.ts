@@ -3,6 +3,7 @@ import { LLMProvider, ProviderType, ProviderRegistry, LLMProviderConfig } from '
 import { AnthropicProvider } from './anthropic-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
 import { LocalProvider } from './local-provider.js';
+import { BedrockProvider } from './bedrock-provider.js';
 
 /**
  * Registry for managing LLM providers
@@ -79,6 +80,7 @@ export class LLMProviderRegistry implements ProviderRegistry {
     this.register(new AnthropicProvider());
     this.register(new OpenAIProvider());
     this.register(new LocalProvider());
+    this.register(new BedrockProvider());
   }
 
   /**

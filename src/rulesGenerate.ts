@@ -15,6 +15,7 @@ interface RulesGenerateOptions {
   baseURL?: string;
   maxTokens?: number;
   temperature?: number;
+  region?: string;
   chunkSize?: number;
   chunkDelay?: number;
   repomixFile?: string;
@@ -121,6 +122,7 @@ export async function rulesGenerate(
         baseURL: options.baseURL,
         maxTokens: options.maxTokens,
         temperature: options.temperature,
+        region: options.region,
         chunkSize: options.chunkSize,
         chunkDelay: options.chunkDelay
       }

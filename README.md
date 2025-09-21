@@ -257,6 +257,12 @@ cursorifier --output-format roo --description "TypeScript development with AI in
 # Generate Roo Custom Modes using OpenAI
 cursorifier --output-format roo --provider openai --model gpt-4o
 
+# Generate using AWS Bedrock
+cursorifier --provider bedrock --model anthropic.claude-3-sonnet-20240229-v1:0
+
+# Generate using AWS Bedrock with specific profile and region
+cursorifier --provider bedrock --aws-profile myprofile --aws-region us-west-2
+
 # List available providers and models
 cursorifier --list-providers
 
@@ -315,16 +321,22 @@ Options:
 - **API Key**: Optional (`LOCAL_API_KEY`)
 - **Best for**: Privacy, offline usage, and custom models
 
+### AWS Bedrock
+- **Models**: Claude 3 (Haiku, Sonnet, Opus), Titan, Llama 2, Mistral, Cohere
+- **API Key**: AWS credentials (via profile, environment, or IAM role)
+- **Best for**: Enterprise AWS environments, cost-effective access to multiple model providers
+
 ## 📊 Provider Comparison
 
-| Feature | Anthropic Claude | OpenAI | Local Models |
-|---------|------------------|--------|--------------|
-| **Quality** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Speed** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **Cost** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Privacy** | ⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Offline** | ❌ | ❌ | ✅ |
-| **Custom Models** | ❌ | ❌ | ✅ |
+| Feature | Anthropic Claude | OpenAI | Local Models | AWS Bedrock |
+|---------|------------------|--------|--------------|-------------|
+| **Quality** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Speed** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Cost** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **Privacy** | ⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **Offline** | ❌ | ❌ | ✅ | ❌ |
+| **Custom Models** | ❌ | ❌ | ✅ | ❌ |
+| **Enterprise** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ |
 
 ## 🎯 Use Cases
 
@@ -332,12 +344,47 @@ Options:
 
 | **Use Case** | **Recommended Provider** | **Why** |
 |--------------|-------------------------|---------|
-| 🏢 **Enterprise Projects** | Anthropic Claude | Best code understanding and analysis |
+| 🏢 **Enterprise Projects** | AWS Bedrock | Enterprise-grade security and compliance |
+| 🧠 **Complex Analysis** | Anthropic Claude | Best code understanding and analysis |
 | 🚀 **Rapid Prototyping** | OpenAI | Fast and cost-effective |
 | 🔒 **Sensitive Codebases** | Local Models | Complete privacy and control |
 | 🎓 **Learning Projects** | Local Models | Free and educational |
+| ☁️ **AWS Environments** | AWS Bedrock | Native AWS integration and billing |
 
 </div>
+
+### Setting up AWS Bedrock
+
+#### Prerequisites
+1. **AWS Account**: You need an active AWS account
+2. **Bedrock Access**: Request access to Bedrock foundation models in your AWS console
+3. **AWS Credentials**: Configure your AWS credentials
+
+#### AWS Credentials Setup
+```bash
+# Option 1: AWS CLI configuration
+aws configure
+
+# Option 2: Environment variables
+export AWS_ACCESS_KEY_ID=your_access_key
+export AWS_SECRET_ACCESS_KEY=your_secret_key
+export AWS_DEFAULT_REGION=us-east-1
+
+# Option 3: AWS Profile
+export AWS_PROFILE=your_profile_name
+```
+
+#### Usage Examples
+```bash
+# Use default AWS credentials and region
+cursorifier . --provider bedrock
+
+# Specify AWS profile and region
+cursorifier . --provider bedrock --aws-profile myprofile --aws-region us-west-2
+
+# Use specific Bedrock model
+cursorifier . --provider bedrock --model anthropic.claude-3-sonnet-20240229-v1:0
+```
 
 ### Setting up Local Models
 
