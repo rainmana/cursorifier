@@ -37,6 +37,8 @@ export async function rulesGenerate(
     let outputFile: string;
     if (outputFormat === 'cline') {
       outputFile = path.join(outputDir, '.clinerules');
+    } else if (outputFormat === 'roo') {
+      outputFile = path.join(outputDir, '.roomodes');
     } else {
       outputFile = path.join(outputDir, `${repoName}.rules.mdc`);
     }
@@ -70,30 +72,40 @@ export async function rulesGenerate(
     console.log(pc.cyan(`2. Reading ${outputFormat} rules guidelines...`));
     // 4. Read guidelines file based on output format
     let guidelinesText: string;
-    const guidelinesFile = outputFormat === 'cline' ? 'cline_rules.md' : 'cursor_mdc.md';
+    let guidelinesFile: string;
+    if (outputFormat === 'cline') {
+      guidelinesFile = 'cline_rules.md';
+    } else if (outputFormat === 'roo') {
+      guidelinesFile = 'roo_modes.md';
+    } else {
+      guidelinesFile = 'cursor_mdc.md';
+    }
     
     try {
-      // First try with a path relative to the current module
-      const modulePath = new URL(import.meta.url).pathname;
-      const moduleDir = path.dirname(modulePath);
-      const moduleDirPath = path.resolve(moduleDir, `../src/prompts/${guidelinesFile}`);
-      
-      guidelinesText = await fs.readFile(moduleDirPath, 'utf-8');
-      console.log(pc.green('✓ Successfully read guidelines from module path'));
+      // Try with a local path first (more reliable)
+      const localPath = path.join(process.cwd(), 'src', 'prompts', guidelinesFile);
+      guidelinesText = await readGuidelines(localPath);
+      console.log(pc.green('✓ Successfully read guidelines from local path'));
     } catch (_error) {
-      // If not found in module path, try with a local path
+      // If not found locally, try with module path
       try {
-        console.debug(`Error: ${_error}. Trying to read guidelines from local path...`);
-        const localPath = path.join(process.cwd(), 'src', 'prompts', guidelinesFile);
-        guidelinesText = await readGuidelines(localPath);
-        console.log(pc.green('✓ Successfully read guidelines from local path'));
+        console.debug(`Error: ${_error}. Trying to read guidelines from module path...`);
+        const modulePath = new URL(import.meta.url).pathname;
+        const moduleDir = path.dirname(modulePath);
+        const moduleDirPath = path.resolve(moduleDir, `../src/prompts/${guidelinesFile}`);
+        
+        guidelinesText = await fs.readFile(moduleDirPath, 'utf-8');
+        console.log(pc.green('✓ Successfully read guidelines from module path'));
       } catch (innerError) {
         console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + innerError + '. Using built-in guidelines.'));
         guidelinesText = generateMockGuidelines();
       }
     }
     
-    console.log(pc.cyan(`3. Generating ${outputFormat} rules...`));
+    const generatingText = outputFormat === 'cline' ? 'cline rules' : 
+      outputFormat === 'roo' ? 'roo modes' : 
+        'cursor rules';
+    console.log(pc.cyan(`3. Generating ${generatingText}...`));
     // 5. Generate rules using LLM
     const generatedRules = await generateWithLLM(
       repoText, 
@@ -118,7 +130,10 @@ export async function rulesGenerate(
     // 6. Write output to file
     await fs.writeFile(outputFile, generatedRules);
     
-    console.log(pc.green(`\n✅ Successfully generated ${outputFormat} rules for ${repoName}!`));
+    const formatDisplayName = outputFormat === 'cline' ? 'cline rules' : 
+      outputFormat === 'roo' ? 'roo modes' : 
+        'cursor rules';
+    console.log(pc.green(`\n✅ Successfully generated ${formatDisplayName} for ${repoName}!`));
     console.log(`Output saved to: ${pc.bold(outputFile)}`);
     console.log(`All generated files are in: ${pc.bold(outputDir)}`);
   } catch (error) {
@@ -178,9 +193,9 @@ async function runRepomix(repoPath: string, outputDir: string, additionalOptions
       }
     }
     
-    // Add output directory to command
-    const outputFilePath = path.join(outputDir, 'repomix-output');
-    command += ` --output "${outputFilePath}"`;
+    // Add output file to command (single file, not folder)
+    const outputFilePath = path.join(outputDir, 'repomix-output.txt');
+    command += ` -o "${outputFilePath}"`;
     
     // Display the command being executed
     console.log(pc.cyan(`Executing: ${command}`));

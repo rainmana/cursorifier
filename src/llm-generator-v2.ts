@@ -189,12 +189,15 @@ async function generateWithProvider(
   // Process text chunk by chunk using the iterator
   let currentSummary = ''; // This will store our progressively built summary
   
-  // Helper function to extract content between <cursorrules> tags
-  function extractCursorrules(text: string): string {
-    const regex = /<cursorrules>([\s\S]*?)<\/cursorrules>/;
+  // Helper function to extract content between tags based on output format
+  function extractContent(text: string): string {
+    const tagName = outputFormat === 'cline' ? 'clinerules' : 
+                   outputFormat === 'roo' ? 'roomodes' : 
+                   'cursorrules';
+    const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`);
     const match = text.match(regex);
     if (!match) {
-      throw new Error('Response does not contain <cursorrules> tags. Make sure the model includes the required tags in its response.');
+      throw new Error(`Response does not contain <${tagName}> tags. Make sure the model includes the required tags in its response.`);
     }
     return match[1].trim();
   }
@@ -213,13 +216,21 @@ async function generateWithProvider(
     
     const isFirstChunk = index === 0;
     
-    const systemPrompt = 'You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.';
+    const systemPrompt = outputFormat === 'cline' ? 
+      'You are an expert AI system designed to analyze code repositories and generate Cline rules. Your task is to create a .clinerules file based on the provided repository content and guidelines.' :
+      outputFormat === 'roo' ?
+        'You are an expert AI system designed to analyze code repositories and generate Roo Custom Modes. Your task is to create a .roomodes YAML configuration file based on the provided repository content and guidelines.' :
+        'You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.';
     
     let userPrompt: string;
     
     if (isFirstChunk) {
       // For the first chunk, start creating the rules
-      userPrompt = `I need your help to create a Cursor rule (.cursorrules) file for my project. Please follow this process:
+      const outputType = outputFormat === 'cline' ? 'Cline rules (.clinerules)' : 
+        outputFormat === 'roo' ? 'Roo Custom Modes (.roomodes)' : 
+          'Cursor rules (.cursorrules)';
+      
+      userPrompt = `I need your help to create ${outputType} for my project. Please follow this process:
 
 1. First, carefully read and understand this codebase chunk:
 
@@ -245,29 +256,33 @@ ${description || ruleType ? '5' : '3'}. Analyze the repository content and struc
 
 Present your analysis inside <repository_analysis> tags.
 
-${description || ruleType ? '6' : '4'}. Create a complete .cursorrules file that:
+${description || ruleType ? '6' : '4'}. Create a complete ${outputFormat === 'cline' ? '.clinerules' : outputFormat === 'roo' ? '.roomodes YAML configuration' : '.cursorrules'} file that:
    - Is specific to this repository's structure and technologies
    - Includes best practices and guidelines from code, comments, and documentation
    - Organizes rules to match the codebase structure
    - Is concise and actionable
    - Includes testing best practices and guidelines
-   - Uses valid Markdown format${ruleType ? `
+   - Uses valid ${outputFormat === 'roo' ? 'YAML' : 'Markdown'} format${ruleType ? `
    - Follows the rule type: "${ruleType}"` : ''}${description ? `
    - Addresses the specific request: "${description}"` : ''}
 
-Include your final .cursorrules content inside <cursorrules> tags.
-Be concise - the final cursorrules file text must be not more than one page long.
+Include your final ${outputFormat === 'cline' ? 'clinerules' : outputFormat === 'roo' ? 'roomodes YAML' : 'cursorrules'} content inside <${outputFormat === 'cline' ? 'clinerules' : outputFormat === 'roo' ? 'roomodes' : 'cursorrules'}> tags.
+Be concise - the final ${outputFormat === 'cline' ? 'clinerules' : outputFormat === 'roo' ? 'roomodes' : 'cursorrules'} file text must be not more than one page long.
 
 Example structure:
 
-<cursorrules>
-...markdown content of the .cursorrules file, following the guidelines and analysis...
-</cursorrules>`;
+${outputFormat === 'cline' ? '<clinerules>\n...markdown content of the .clinerules file, following the guidelines and analysis...\n</clinerules>' : 
+    outputFormat === 'roo' ? '<roomodes>\n...YAML content of the .roomodes file, following the guidelines and analysis...\n</roomodes>' :
+      '<cursorrules>\n...markdown content of the .cursorrules file, following the guidelines and analysis...\n</cursorrules>'}`;
     } else {
       // For subsequent chunks, enhance the existing summary
-      userPrompt = `I need your help to update a Cursor rule (.cursorrules) file based on a new chunk of my project:
+      const outputType = outputFormat === 'cline' ? 'Cline rules (.clinerules)' : 
+        outputFormat === 'roo' ? 'Roo Custom Modes (.roomodes)' : 
+          'Cursor rules (.cursorrules)';
+      
+      userPrompt = `I need your help to update ${outputType} based on a new chunk of my project:
 
-1. Here is the current .cursorrules file content:
+1. Here is the current ${outputFormat === 'cline' ? '.clinerules' : outputFormat === 'roo' ? '.roomodes' : '.cursorrules'} file content:
 
 <current_rules>
 ${currentSummary}
@@ -279,7 +294,7 @@ ${currentSummary}
 ${chunk}
 </repository_chunk>
 
-3. Review these guidelines for creating effective Cursor rules:
+3. Review these guidelines for creating effective ${outputFormat === 'cline' ? 'Cline rules' : outputFormat === 'roo' ? 'Roo Custom Modes' : 'Cursor rules'}:
 
 <guidelines>
 ${guidelines}
@@ -307,8 +322,8 @@ ${description || ruleType ? (description && ruleType ? '7' : '6') : '5'}. Update
    - Following the rule type: "${ruleType}"` : ''}${description ? `
    - Addressing the specific request: "${description}"` : ''}
 
-Include your final updated .cursorrules content inside <cursorrules> tags.
-Be concise - the final cursorrules file text must be not more than one page long.`;
+Include your final updated ${outputFormat === 'cline' ? '.clinerules' : outputFormat === 'roo' ? '.roomodes YAML' : '.cursorrules'} content inside <${outputFormat === 'cline' ? 'clinerules' : outputFormat === 'roo' ? 'roomodes' : 'cursorrules'}> tags.
+Be concise - the final ${outputFormat === 'cline' ? 'clinerules' : outputFormat === 'roo' ? 'roomodes' : 'cursorrules'} file text must be not more than one page long.`;
     }
 
     const messages: LLMMessage[] = [
@@ -352,7 +367,7 @@ Be concise - the final cursorrules file text must be not more than one page long
   console.log(pc.green('└─────────────────────────────────────────┘\n'));
   
   // Only extract the cursorrules content at the very end
-  return extractCursorrules(currentSummary);
+  return extractContent(currentSummary);
 }
 
 function generateMockResponse(repoContent: string): string {

@@ -112,6 +112,20 @@ cursorifier https://github.com/facebook/react --output-format cline
 - Team consistency and best practices
 - Focus on development workflow
 
+### **Roo Custom Modes**
+```bash
+# Generate Roo Custom Modes
+cursorifier https://github.com/facebook/react --output-format roo
+# Output: react-output/.roomodes
+```
+
+**Features:**
+- `.roomodes` YAML configuration file
+- Specialized AI personas for different tasks
+- Tool access permissions and file restrictions
+- Custom behavioral instructions
+- Mode-specific expertise and capabilities
+
 ## 🛡️ Reliability Features
 
 ### **Automatic Rate Limit Handling**
@@ -161,10 +175,10 @@ cursorifier https://github.com/facebook/react --output-format cline
 </td>
 <td width="50%">
 
-### 🎯 **Production Ready**
-- Generates `.rules.mdc` files
-- Drop-in Cursor AI integration
-- Zero configuration required
+### 🎯 **Multi-Format Support**
+- **Cursor AI Rules** - `.rules.mdc` files for Cursor
+- **Cline Rules** - `.clinerules` files for Cline
+- **Roo Custom Modes** - `.roomodes` YAML for Roo
 
 </td>
 </tr>
@@ -234,6 +248,15 @@ cursorifier --output-format cline --description "React project guidelines and co
 # Generate Cline rules using local model
 cursorifier --output-format cline --provider local --model llama3.1 --base-url http://localhost:11434/v1
 
+# Generate Roo Custom Modes
+cursorifier --output-format roo
+
+# Generate Roo Custom Modes with specific description
+cursorifier --output-format roo --description "TypeScript development with AI integration"
+
+# Generate Roo Custom Modes using OpenAI
+cursorifier --output-format roo --provider openai --model gpt-4o
+
 # List available providers and models
 cursorifier --list-providers
 
@@ -267,7 +290,7 @@ Options:
   --temperature <temp>     Temperature for generation (0-2, default: 0.7)
   --description <text>     Description of what should be rulefied
   --rule-type <type>       Type of rule to generate (auto, manual, agent, always)
-  --output-format <format> Output format for rules (cursor, cline) (default: cursor)
+  --output-format <format> Output format for rules (cursor, cline, roo) (default: cursor)
   --chunk-size <size>      Chunk size for processing (default: 100000)
   --chunk-delay <ms>       Delay between chunks in milliseconds to avoid rate limits (default: 5000)
   --repomix-file <path>    Path to existing repomix output file (skips repomix execution)
