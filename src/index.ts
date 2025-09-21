@@ -93,7 +93,7 @@ export const run = async (): Promise<void> => {
     const additionalOptions: Record<string, string> = {};
     
     // Known options already handled by Commander
-    const knownOptions = ['provider', 'model', 'api-key', 'base-url', 'max-tokens', 'temperature', 'aws-profile', 'aws-region', 'description', 'rule-type', 'output-format', 'chunk-size', 'repomix-file', 'list-providers'];
+    const knownOptions = ['provider', 'model', 'api-key', 'base-url', 'max-tokens', 'temperature', 'aws-profile', 'aws-region', 'description', 'rule-type', 'output-format', 'chunk-size', 'repomix-file', 'list-providers', 'remote'];
     const knownOptionFlags = knownOptions.map(opt => `--${opt}`);
     
     // Parse additional options from args array

@@ -7,7 +7,7 @@ export declare class AnthropicProvider extends BaseLLMProvider {
     readonly name = "anthropic";
     readonly displayName = "Anthropic Claude";
     readonly requiresApiKey = true;
-    readonly defaultModel = "claude-3-5-sonnet-20241022";
+    readonly defaultModel = "claude-3-7-sonnet-20250219";
     private client;
     constructor();
     /**

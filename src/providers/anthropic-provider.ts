@@ -17,7 +17,7 @@ export class AnthropicProvider extends BaseLLMProvider {
   readonly name = 'anthropic';
   readonly displayName = 'Anthropic Claude';
   readonly requiresApiKey = true;
-  readonly defaultModel = 'claude-3-5-sonnet-20241022';
+  readonly defaultModel = 'claude-3-7-sonnet-20250219';  // Latest, most intelligent, cost-effective
 
   private client: Anthropic | null = null;
 
@@ -112,11 +112,14 @@ export class AnthropicProvider extends BaseLLMProvider {
    */
   getAvailableModels(): string[] {
     return [
-      'claude-3-5-sonnet-20241022',
-      'claude-3-5-haiku-20241022',
-      'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
-      'claude-3-haiku-20240307'
+      'claude-3-7-sonnet-20250219',  // Latest, most intelligent
+      'claude-3-5-sonnet-20241022',  // Cost-effective, fast
+      'claude-3-5-haiku-20241022',   // Fastest, most cost-effective
+      'claude-sonnet-4-20250514',    // Claude 4 Sonnet
+      'claude-opus-4-20250514',      // Claude 4 Opus (most powerful)
+      'claude-3-opus-20240229',      // Legacy Opus
+      'claude-3-sonnet-20240229',    // Legacy Sonnet
+      'claude-3-haiku-20240307'      // Legacy Haiku
     ];
   }
 

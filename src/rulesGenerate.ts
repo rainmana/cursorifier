@@ -60,7 +60,7 @@ export async function rulesGenerate(
         throw new Error(`Failed to read repomix file: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } else {
-      // Run repomix to get repo representation
+      // Run repomix to get repo representation (handles both local and remote)
       console.log(pc.cyan('1. Converting repository to text using repomix...'));
       try {
         repoText = await runRepomix(repoPath, outputDir, options.additionalOptions);
@@ -182,7 +182,14 @@ async function runRepomix(repoPath: string, outputDir: string, additionalOptions
   try {
     
     // Build repomix command based on whether it's a remote or local repository
-    let command = `npx repomix ${repoPath}`;
+    let command: string;
+    
+    // Check if it's a remote repository URL
+    if (repoPath.startsWith('http://') || repoPath.startsWith('https://') || repoPath.startsWith('git@')) {
+      command = `npx repomix --remote ${repoPath}`;
+    } else {
+      command = `npx repomix ${repoPath}`;
+    }
     
     // Add any additional options to the command
     if (additionalOptions) {

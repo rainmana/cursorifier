@@ -215,11 +215,20 @@ cursorifier <repo-path>
 Examples:
 
 ```bash
-# Inside a repository (uses Anthropic Claude by default)
+# Inside a repository (uses Claude 3.7 Sonnet by default - latest and most intelligent)
 cursorifier
 
-# Using OpenAI
+# Using latest Claude 3.7 Sonnet explicitly
+cursorifier --provider anthropic --model claude-3-7-sonnet-20250219
+
+# Using Claude 4 Opus (most powerful)
+cursorifier --provider anthropic --model claude-opus-4-20250514
+
+# Using OpenAI (latest model)
 cursorifier --provider openai --model gpt-4o
+
+# Using OpenAI 4.1 mini (fast and cost-effective)
+cursorifier --provider openai --model gpt-4.1-mini
 
 # Using local Ollama model
 cursorifier --provider local --model llama3.1 --base-url http://localhost:11434/v1
@@ -307,12 +316,12 @@ Options:
 ## Supported Providers
 
 ### Anthropic Claude (Default)
-- **Models**: claude-3-5-sonnet, claude-3-5-haiku, claude-3-opus, claude-3-sonnet, claude-3-haiku
+- **Models**: claude-3-7-sonnet (latest), claude-3-5-sonnet, claude-3-5-haiku, claude-4-sonnet, claude-4-opus, claude-3-opus, claude-3-sonnet, claude-3-haiku
 - **API Key**: `ANTHROPIC_API_KEY`
 - **Best for**: High-quality code analysis and rule generation
 
 ### OpenAI
-- **Models**: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
+- **Models**: gpt-4o (latest), gpt-4.1-mini, gpt-4.1, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
 - **API Key**: `OPENAI_API_KEY`
 - **Best for**: Fast processing and cost-effective analysis
 
@@ -322,7 +331,7 @@ Options:
 - **Best for**: Privacy, offline usage, and custom models
 
 ### AWS Bedrock
-- **Models**: Claude 3 (Haiku, Sonnet, Opus), Titan, Llama 2, Mistral, Cohere
+- **Models**: Claude 3.7/4 (Sonnet, Opus), Claude 3.5 (Haiku, Sonnet), Titan, Llama 2/3, Mistral, Cohere
 - **API Key**: AWS credentials (via profile, environment, or IAM role)
 - **Best for**: Enterprise AWS environments, cost-effective access to multiple model providers
 
