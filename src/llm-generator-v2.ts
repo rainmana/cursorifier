@@ -191,9 +191,9 @@ async function generateWithProvider(
   
   // Helper function to extract content between tags based on output format
   function extractContent(text: string): string {
-    const tagName = outputFormat === 'cline' ? 'clinerules' : 
-                   outputFormat === 'roo' ? 'roomodes' : 
-                   'cursorrules';
+    const tagName = outputFormat === 'cline' ? 'clinerules' :
+      outputFormat === 'roo' ? 'roomodes' :
+        'cursorrules';
     const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`);
     const match = text.match(regex);
     if (!match) {
