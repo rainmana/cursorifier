@@ -1,8 +1,17 @@
 # Cursorifier
 
-[![npm version](https://img.shields.io/npm/v/cursorifier.svg)](https://www.npmjs.com/package/cursorifier)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/node/v/cursorifier.svg)](https://nodejs.org/)
+<div align="center">
+
+[![npm version](https://img.shields.io/npm/v/cursorifier.svg?style=for-the-badge)](https://www.npmjs.com/package/cursorifier)
+[![npm downloads](https://img.shields.io/npm/dm/cursorifier.svg?style=for-the-badge)](https://www.npmjs.com/package/cursorifier)
+[![GitHub stars](https://img.shields.io/github/stars/rainmana/cursorifier.svg?style=for-the-badge&label=Stars)](https://github.com/rainmana/cursorifier)
+[![GitHub forks](https://img.shields.io/github/forks/rainmana/cursorifier.svg?style=for-the-badge&label=Forks)](https://github.com/rainmana/cursorifier)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/cursorifier.svg?style=for-the-badge)](https://nodejs.org/)
+
+[![GitHub stars over time](https://starchart.cc/rainmana/cursorifier.svg)](https://starchart.cc/rainmana/cursorifier)
+
+</div>
 
 **Supercharge your Cursor AI with codebase-specific intelligence.** Cursorify transforms your GitHub repositories into custom rules that teach Cursor AI how your project works, resulting in more accurate code suggestions, better refactoring, and contextually aware assistance. Now supports multiple LLM providers including Anthropic Claude, OpenAI, and local models like Ollama.
 
@@ -25,15 +34,93 @@
 - 📝 Create production-ready .rules.mdc files for immediate use
 - 🔧 Customize analysis with flexible configuration options
 
-## Installation
+## 🚀 Installation
+
+### Quick Install (Recommended)
 
 ```bash
-# Install globally
+# Install globally from npm
 npm install -g cursorifier
 
 # Or use with npx (no installation required)
 npx cursorifier
 ```
+
+### Alternative Installation Methods
+
+```bash
+# Install from GitHub (latest development version)
+npm install -g https://github.com/rainmana/cursorifier.git
+
+# Or clone and install locally
+git clone https://github.com/rainmana/cursorifier.git
+cd cursorifier
+npm install
+npm link
+```
+
+### Verify Installation
+
+```bash
+cursorifier --version
+cursorifier --list-providers
+```
+
+📦 **Available on [npmjs.com](https://www.npmjs.com/package/cursorifier)**
+
+## 🎬 Quick Demo
+
+```bash
+# Generate rules for any GitHub repository
+cursorifier https://github.com/facebook/react
+
+# Use with local models (Ollama)
+cursorifier . --provider local --base-url http://localhost:11434 --model llama2
+
+# Use existing repomix output
+cursorifier --repomix-file ./my-repo-analysis.xml
+```
+
+## ✨ What Makes Cursorifier Special?
+
+<table>
+<tr>
+<td width="50%">
+
+### 🧠 **Intelligent Analysis**
+- Analyzes your entire codebase structure
+- Identifies patterns, conventions, and architecture
+- Understands your project's unique characteristics
+
+</td>
+<td width="50%">
+
+### 🚀 **Multi-Provider Support**
+- **Anthropic Claude** - Most intelligent analysis
+- **OpenAI GPT** - Fast and reliable
+- **Local Models** - Privacy-focused with Ollama/LM Studio
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 📊 **Smart Chunking**
+- Handles repositories of any size
+- Intelligent content segmentation
+- Optimized for LLM token limits
+
+</td>
+<td width="50%">
+
+### 🎯 **Production Ready**
+- Generates `.rules.mdc` files
+- Drop-in Cursor AI integration
+- Zero configuration required
+
+</td>
+</tr>
+</table>
 
 ## Prerequisites
 
@@ -139,6 +226,30 @@ Options:
 - **Models**: llama3.1, codellama, mistral, mixtral, phi3, gemma, qwen, and more
 - **API Key**: Optional (`LOCAL_API_KEY`)
 - **Best for**: Privacy, offline usage, and custom models
+
+## 📊 Provider Comparison
+
+| Feature | Anthropic Claude | OpenAI | Local Models |
+|---------|------------------|--------|--------------|
+| **Quality** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **Speed** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Cost** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Privacy** | ⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Offline** | ❌ | ❌ | ✅ |
+| **Custom Models** | ❌ | ❌ | ✅ |
+
+## 🎯 Use Cases
+
+<div align="center">
+
+| **Use Case** | **Recommended Provider** | **Why** |
+|--------------|-------------------------|---------|
+| 🏢 **Enterprise Projects** | Anthropic Claude | Best code understanding and analysis |
+| 🚀 **Rapid Prototyping** | OpenAI | Fast and cost-effective |
+| 🔒 **Sensitive Codebases** | Local Models | Complete privacy and control |
+| 🎓 **Learning Projects** | Local Models | Free and educational |
+
+</div>
 
 ### Setting up Local Models
 
@@ -247,11 +358,37 @@ If you encounter rate limits or ihigh costs, try to minimize the context length 
 ### Original Project Credits
 This project is based on the excellent work of [niklub](https://github.com/niklub) and their original [rulefy](https://github.com/niklub/rulefy) project. We're grateful for their foundational work that made this enhanced version possible.
 
-## Contributing
+## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We love contributions! Here's how you can help:
 
-## Acknowledgements
+- 🐛 **Report bugs** - Found an issue? Open a [GitHub Issue](https://github.com/rainmana/cursorifier/issues)
+- 💡 **Suggest features** - Have an idea? We'd love to hear it!
+- 🔧 **Submit PRs** - Fix bugs or add features
+- 📖 **Improve docs** - Help others learn how to use Cursorifier
+
+### Development Setup
+
+```bash
+git clone https://github.com/rainmana/cursorifier.git
+cd cursorifier
+npm install
+npm run build
+npm link
+```
+
+## 📈 Stats & Analytics
+
+<div align="center">
+
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/rainmana/cursorifier?style=for-the-badge)](https://github.com/rainmana/cursorifier)
+[![GitHub last commit](https://img.shields.io/github/last-commit/rainmana/cursorifier?style=for-the-badge)](https://github.com/rainmana/cursorifier)
+[![GitHub issues](https://img.shields.io/github/issues/rainmana/cursorifier?style=for-the-badge)](https://github.com/rainmana/cursorifier/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/rainmana/cursorifier?style=for-the-badge)](https://github.com/rainmana/cursorifier/pulls)
+
+</div>
+
+## 🏆 Acknowledgements
 
 This project is inspired by and builds upon the work of:
 
@@ -261,4 +398,16 @@ This project is inspired by and builds upon the work of:
 - [cursor-custom-agents-rules-generator](https://github.com/bmadcode/cursor-custom-agents-rules-generator) - best practices for Cursor custom agents and rules generator
 
 We're grateful to these projects for their contributions to the developer tooling ecosystem.
+
+---
+
+<div align="center">
+
+**⭐ Star this repo if you find it helpful!**
+
+[![GitHub stars](https://img.shields.io/github/stars/rainmana/cursorifier?style=social)](https://github.com/rainmana/cursorifier)
+
+Made with ❤️ by [rainmana](https://github.com/rainmana)
+
+</div>
 
