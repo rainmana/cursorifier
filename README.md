@@ -233,15 +233,29 @@ If you encounter rate limits or ihigh costs, try to minimize the context length 
 - Control the size of the chunk being processed by one go by using the `--chunk-size` option. (default is `--chunk-size 100000`)
 
 
+## Fork Information
+
+**Cursorify** is a fork of the original [rulefy](https://github.com/niklub/rulefy) project by [niklub](https://github.com/niklub), enhanced with additional features:
+
+### New Features Added
+- 🔌 **Multi-Provider LLM Support**: Anthropic Claude, OpenAI, and local models (Ollama, LM Studio)
+- 🏠 **Local AI Integration**: Use your own models with Ollama or LM Studio
+- 📁 **Repomix File Support**: Use existing repomix output files
+- ⚙️ **Enhanced Configuration**: More granular control over LLM parameters
+- 🎯 **Better Error Handling**: Improved error messages and validation
+
+### Original Project Credits
+This project is based on the excellent work of [niklub](https://github.com/niklub) and their original [rulefy](https://github.com/niklub/rulefy) project. We're grateful for their foundational work that made this enhanced version possible.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
 
 ## Acknowledgements
 
 This project is inspired by and builds upon the work of:
 
+- [rulefy](https://github.com/niklub/rulefy) - Original project by niklub (forked and enhanced)
 - [repomix](https://github.com/yamadashy/repomix) - A tool for converting repositories into textual representations
 - [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) - A curated list of cursor rules for different projects and languages
 - [cursor-custom-agents-rules-generator](https://github.com/bmadcode/cursor-custom-agents-rules-generator) - best practices for Cursor custom agents and rules generator
