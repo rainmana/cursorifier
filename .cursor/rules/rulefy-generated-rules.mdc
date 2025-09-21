@@ -1,0 +1,101 @@
+---
+description: "These rules apply when developing, extending, or contributing to the Rulefy project - a tool for generating Cursor AI rules from GitHub repositories. Follow these guidelines to ensure consistent code quality, proper error handling, and adherence to the project's architectural patterns."
+globs: 
+alwaysApply: false
+---
+
+# Rulefy Development Guidelines
+
+## Critical Rules
+
+- Use TypeScript with strict typing and proper return type annotations for all functions
+- Follow ESM module syntax with `.js` extensions in import paths despite TypeScript usage
+- Handle errors properly with try/catch blocks and appropriate error messages
+- Use color formatting with picocolors for console output to maintain consistent UX
+- Validate all external inputs and environment variables before use
+- Implement proper chunking for large repository content to avoid token limit issues
+- Follow the established architecture separating CLI, rule generation, and LLM integration
+- Maintain backward compatibility for CLI options and programmatic API
+- Document public functions and interfaces with JSDoc comments
+- Handle rate limits and API errors gracefully when interacting with external services
+- Structure code to be testable, even though tests aren't implemented yet
+
+## Examples
+
+<example>
+// VALID: Proper error handling with try/catch and color formatting
+import pc from 'picocolors';
+
+async function processRepository(repoPath: string): Promise<void> {
+  try {
+    // Validate inputs
+    if (!repoPath) {
+      throw new Error('Repository path is required');
+    }
+    
+    // Process with proper error handling
+    console.log(pc.cyan('Processing repository...'));
+    const result = await someAsyncOperation(repoPath);
+    console.log(pc.green('✓ Successfully processed repository'));
+    
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(pc.red(`Error: ${error.message}`));
+    } else {
+      console.error(pc.red('Unknown error occurred'));
+    }
+    process.exit(1);
+  }
+}
+</example>
+
+<example type="invalid">
+// INVALID: Missing error handling and type annotations
+function processRepo(repo) {
+  // No input validation
+  
+  // No try/catch block
+  const data = someAsyncOperation(repo);
+  
+  // No proper console formatting
+  console.log("Done processing");
+  
+  // Missing return type
+  return data;
+}
+</example>
+
+<example>
+// VALID: Proper module imports with ESM syntax
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { generateRules } from './rulesGenerator.js';
+
+export async function processFiles(directory: string): Promise<string[]> {
+  const files = await fs.readdir(directory);
+  return files.filter(file => path.extname(file) === '.ts');
+}
+</example>
+
+<example type="invalid">
+// INVALID: Incorrect import syntax for ESM
+const fs = require('fs');
+import { generateRules } from './rulesGenerator';  // Missing .js extension
+
+function processFiles(directory) {
+  return new Promise((resolve, reject) => {
+    fs.readdir(directory, (err, files) => {
+      if (err) reject(err);
+      resolve(files.filter(file => file.endsWith('.ts')));
+    });
+  });
+}
+</example>
+
+## Key Files Reference
+
+- [src/index.ts](mdc:src/index.ts) - Entry point with CLI handling
+- [src/rulesGenerate.ts](mdc:src/rulesGenerate.ts) - Core rule generation logic
+- [src/llmGenerator.ts](mdc:src/llmGenerator.ts) - Integration with Claude AI
+- [src/prompts/cursor_mdc.md](mdc:src/prompts/cursor_mdc.md) - Rule format guidelines

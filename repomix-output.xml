@@ -1,0 +1,3147 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.cursor/rules/rulefy-generated-rules.mdc
+.eslintrc.json
+.github/workflows/ci.yml
+.gitignore
+.npmignore
+bin/rulefy.cjs
+CHANGELOG.md
+CONTRIBUTING.md
+cursorrules-guidelines.md
+LICENSE
+package.json
+README.md
+src/index.ts
+src/llm-generator-v2.ts
+src/llmGenerator.ts
+src/prompts/cursor_mdc.md
+src/providers/anthropic-provider.ts
+src/providers/base-provider.ts
+src/providers/local-provider.ts
+src/providers/openai-provider.ts
+src/providers/provider-registry.ts
+src/rulesGenerate.ts
+src/types/llm-provider.ts
+test-output-dir.js
+test-repomix.txt
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".cursor/rules/rulefy-generated-rules.mdc">
+---
+description: "These rules apply when developing, extending, or contributing to the Rulefy project - a tool for generating Cursor AI rules from GitHub repositories. Follow these guidelines to ensure consistent code quality, proper error handling, and adherence to the project's architectural patterns."
+globs: 
+alwaysApply: false
+---
+
+# Rulefy Development Guidelines
+
+## Critical Rules
+
+- Use TypeScript with strict typing and proper return type annotations for all functions
+- Follow ESM module syntax with `.js` extensions in import paths despite TypeScript usage
+- Handle errors properly with try/catch blocks and appropriate error messages
+- Use color formatting with picocolors for console output to maintain consistent UX
+- Validate all external inputs and environment variables before use
+- Implement proper chunking for large repository content to avoid token limit issues
+- Follow the established architecture separating CLI, rule generation, and LLM integration
+- Maintain backward compatibility for CLI options and programmatic API
+- Document public functions and interfaces with JSDoc comments
+- Handle rate limits and API errors gracefully when interacting with external services
+- Structure code to be testable, even though tests aren't implemented yet
+
+## Examples
+
+<example>
+// VALID: Proper error handling with try/catch and color formatting
+import pc from 'picocolors';
+
+async function processRepository(repoPath: string): Promise<void> {
+  try {
+    // Validate inputs
+    if (!repoPath) {
+      throw new Error('Repository path is required');
+    }
+    
+    // Process with proper error handling
+    console.log(pc.cyan('Processing repository...'));
+    const result = await someAsyncOperation(repoPath);
+    console.log(pc.green('✓ Successfully processed repository'));
+    
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(pc.red(`Error: ${error.message}`));
+    } else {
+      console.error(pc.red('Unknown error occurred'));
+    }
+    process.exit(1);
+  }
+}
+</example>
+
+<example type="invalid">
+// INVALID: Missing error handling and type annotations
+function processRepo(repo) {
+  // No input validation
+  
+  // No try/catch block
+  const data = someAsyncOperation(repo);
+  
+  // No proper console formatting
+  console.log("Done processing");
+  
+  // Missing return type
+  return data;
+}
+</example>
+
+<example>
+// VALID: Proper module imports with ESM syntax
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { generateRules } from './rulesGenerator.js';
+
+export async function processFiles(directory: string): Promise<string[]> {
+  const files = await fs.readdir(directory);
+  return files.filter(file => path.extname(file) === '.ts');
+}
+</example>
+
+<example type="invalid">
+// INVALID: Incorrect import syntax for ESM
+const fs = require('fs');
+import { generateRules } from './rulesGenerator';  // Missing .js extension
+
+function processFiles(directory) {
+  return new Promise((resolve, reject) => {
+    fs.readdir(directory, (err, files) => {
+      if (err) reject(err);
+      resolve(files.filter(file => file.endsWith('.ts')));
+    });
+  });
+}
+</example>
+
+## Key Files Reference
+
+- [src/index.ts](mdc:src/index.ts) - Entry point with CLI handling
+- [src/rulesGenerate.ts](mdc:src/rulesGenerate.ts) - Core rule generation logic
+- [src/llmGenerator.ts](mdc:src/llmGenerator.ts) - Integration with Claude AI
+- [src/prompts/cursor_mdc.md](mdc:src/prompts/cursor_mdc.md) - Rule format guidelines
+</file>
+
+<file path="src/llm-generator-v2.ts">
+import { getEncoding } from 'js-tiktoken';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import pc from 'picocolors';
+import readline from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
+import { LLMProviderRegistry } from './providers/provider-registry.js';
+import { LLMProviderConfig, LLMMessage, ChunkProcessingOptions } from './types/llm-provider.js';
+
+// Environment variables for chunk configuration, with defaults
+const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || '100000');
+const costPerToken = 3e-6; // 3$ per million tokens
+
+export interface LLMGeneratorOptions {
+  provider: string;
+  model?: string;
+  apiKey?: string;
+  baseURL?: string;
+  maxTokens?: number;
+  temperature?: number;
+  chunkSize?: number;
+}
+
+export async function generateWithLLM(
+  repoContent: string,
+  guidelines: string,
+  outputDir: string = '.',
+  description?: string,
+  ruleType?: string,
+  options: LLMGeneratorOptions = { provider: 'anthropic' }
+): Promise<string> {
+  // If this is a test run with dummy API key, just return a mock response
+  if (options.apiKey === 'dummy-key') {
+    console.log(pc.yellow('Using mock response for testing'));
+    return generateMockResponse(repoContent);
+  }
+  
+  return await generateWithProvider(repoContent, guidelines, outputDir, description, ruleType, options);
+}
+
+/**
+ * Creates a visual progress bar
+ */
+function progressBar(current: number, total: number, length = 30): string {
+  const percentage = current / total;
+  const filledLength = Math.round(length * percentage);
+  const emptyLength = length - filledLength;
+  
+  const filled = '█'.repeat(filledLength);
+  const empty = '░'.repeat(emptyLength);
+  const percentageText = Math.round(percentage * 100).toString().padStart(3);
+  
+  return `${filled}${empty} ${percentageText}%`;
+}
+
+function formatTokenCount(count: number): string {
+  const formatted = count.toLocaleString();
+  if (count < 50000) return pc.green(formatted);
+  if (count < 100000) return pc.yellow(formatted);
+  return pc.red(formatted);
+}
+
+/**
+ * Calculate the number of chunks needed for processing
+ */
+function calculateChunkCount(totalTokens: number, chunkSize: number): number {
+  if (totalTokens <= chunkSize) return 1;
+  
+  return Math.ceil(totalTokens / chunkSize);
+}
+
+/**
+ * Iterator that yields one chunk at a time to save memory
+ */
+async function* chunkIterator(text: string, chunkSize?: number): AsyncGenerator<{
+  chunk: string;
+  index: number;
+  tokenCount: number;
+  totalChunks: number;
+}, void, unknown> {
+  console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.cyan('│           CONTENT CHUNKING               │'));
+  console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
+  
+  // Get tokenizer for the model
+  const encoding = getEncoding('cl100k_base');
+  
+  const tokens = encoding.encode(text);
+  const totalTokens = tokens.length;
+  const cSize = chunkSize || CHUNK_SIZE;
+  
+  console.log(`● Document size: ${formatTokenCount(totalTokens)} tokens`);
+  console.log(`● Chunk size: ${formatTokenCount(cSize)} tokens`);
+  
+  // Calculate and display the estimated cost
+  const estimatedCost = (totalTokens * costPerToken).toFixed(4);
+  console.log(pc.yellow(`● Estimated input processing cost: $${estimatedCost} (${formatTokenCount(totalTokens)} tokens × $${costPerToken} per token)`));
+  
+  // Create a user dialog to confirm proceeding
+  const rl = readline.createInterface({ input, output });
+  
+  try {
+    const answer = await rl.question(pc.yellow('\nProceed with processing? (y/n): '));
+    const proceed = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+    
+    if (!proceed) {
+      console.log(pc.red('\nOperation cancelled by user.'));
+      process.exit(0);
+    }
+  } finally {
+    rl.close();
+  }
+  
+  // Calculate the total number of chunks for progress reporting
+  const totalChunks = calculateChunkCount(totalTokens, chunkSize || CHUNK_SIZE);
+  console.log(pc.green(`✓ Will process ${totalChunks} chunks\n`));
+  
+  // Yield chunks one at a time
+  let i = 0;
+  let chunkIndex = 0;
+  
+  while (i < tokens.length) {
+    // Get the current chunk of tokens
+    const chunkTokens = tokens.slice(i, Math.min(i + cSize, tokens.length));
+    const chunk = encoding.decode(chunkTokens);
+    
+    // Yield the current chunk along with its metadata
+    yield {
+      chunk,
+      index: chunkIndex,
+      tokenCount: chunkTokens.length,
+      totalChunks
+    };
+    
+    // Move forward to the next chunk (no overlap)
+    i += cSize;
+    chunkIndex++;
+  }
+  
+  process.stdout.write('\n\n');
+}
+
+async function generateWithProvider(
+  repoContent: string,
+  guidelines: string,
+  outputDir: string = '.',
+  description?: string,
+  ruleType?: string,
+  options: LLMGeneratorOptions = { provider: 'anthropic' }
+): Promise<string> {
+  const registry = new LLMProviderRegistry();
+  
+  // Determine provider type
+  const providerType = options.provider as any;
+  const provider = registry.getProvider(providerType);
+  
+  // Get default configuration for the provider
+  const defaultConfig = registry.getDefaultConfig(providerType);
+  
+  // Merge with provided options
+  const config: LLMProviderConfig = {
+    ...defaultConfig,
+    ...options,
+    model: options.model || defaultConfig.model
+  };
+
+  // Validate configuration
+  provider.validateConfig(config);
+
+  // Process text chunk by chunk using the iterator
+  let currentSummary = ''; // This will store our progressively built summary
+  
+  // Helper function to extract content between <cursorrules> tags
+  function extractCursorrules(text: string): string {
+    const regex = /<cursorrules>([\s\S]*?)<\/cursorrules>/;
+    const match = text.match(regex);
+    if (!match) {
+      throw new Error('Response does not contain <cursorrules> tags. Make sure the model includes the required tags in its response.');
+    }
+    return match[1].trim();
+  }
+  
+  // Create a chunk iterator to process one chunk at a time
+  const chunkGen = chunkIterator(repoContent, options.chunkSize);
+  
+  for await (const { chunk, index, tokenCount, totalChunks } of chunkGen) {
+    const chunkDisplay = `[${index+1}/${totalChunks}]`;
+    console.log(`${pc.yellow('⟳')} Processing chunk ${pc.yellow(chunkDisplay)} ${progressBar(index+1, totalChunks)}`);
+    
+    // Display chunk information 
+    console.log(pc.cyan(`┌${'─'.repeat(58)}┐`));
+    console.log(pc.cyan(`│ Chunk: ${String(index+1).padEnd(10)} Token Count: ${formatTokenCount(tokenCount).padEnd(12)} │`));
+    console.log(pc.cyan(`└${'─'.repeat(58)}┘\n`));
+    
+    const isFirstChunk = index === 0;
+    
+    const systemPrompt = 'You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.';
+    
+    let userPrompt: string;
+    
+    if (isFirstChunk) {
+      // For the first chunk, start creating the rules
+      userPrompt = `I need your help to create a Cursor rule (.cursorrules) file for my project. Please follow this process:
+
+1. First, carefully read and understand this codebase chunk:
+
+<repository_chunk>
+${chunk}
+</repository_chunk>
+
+2. Now, review these guidelines for creating effective Cursor rules:
+
+<guidelines>
+${guidelines}
+</guidelines>
+
+${description ? `3. I specifically want to create rules for: "${description}"` : ''}
+${ruleType ? `4. The rule type should be: "${ruleType}"` : ''}
+
+${description || ruleType ? '5' : '3'}. Analyze the repository content and structure, considering:
+   - Main technologies, frameworks, and languages used
+   - Coding patterns, naming conventions, and architectural decisions
+   - Overall codebase structure including key directories and file types
+   - Project-specific practices and testing guidelines
+   - Guidelines and standards documented in comments or markdown files by developers
+
+Present your analysis inside <repository_analysis> tags.
+
+${description || ruleType ? '6' : '4'}. Create a complete .cursorrules file that:
+   - Is specific to this repository's structure and technologies
+   - Includes best practices and guidelines from code, comments, and documentation
+   - Organizes rules to match the codebase structure
+   - Is concise and actionable
+   - Includes testing best practices and guidelines
+   - Uses valid Markdown format${ruleType ? `
+   - Follows the rule type: "${ruleType}"` : ''}${description ? `
+   - Addresses the specific request: "${description}"` : ''}
+
+Include your final .cursorrules content inside <cursorrules> tags.
+Be concise - the final cursorrules file text must be not more than one page long.
+
+Example structure:
+
+<cursorrules>
+...markdown content of the .cursorrules file, following the guidelines and analysis...
+</cursorrules>`;
+    } else {
+      // For subsequent chunks, enhance the existing summary
+      userPrompt = `I need your help to update a Cursor rule (.cursorrules) file based on a new chunk of my project:
+
+1. Here is the current .cursorrules file content:
+
+<current_rules>
+${currentSummary}
+</current_rules>
+
+2. Now, carefully review this new repository chunk:
+
+<repository_chunk>
+${chunk}
+</repository_chunk>
+
+3. Review these guidelines for creating effective Cursor rules:
+
+<guidelines>
+${guidelines}
+</guidelines>
+
+${description ? `4. Remember, I specifically want to create rules for: "${description}"` : ''}
+${ruleType ? `${description ? '5' : '4'}. The rule type should be: "${ruleType}"` : ''}
+
+${description || ruleType ? (description && ruleType ? '6' : '5') : '4'}. Analyze this new chunk for:
+   - New technologies, frameworks, or languages not previously covered
+   - Additional coding patterns, naming conventions, or architectural decisions
+   - Further insights into codebase structure
+   - Project-specific practices and testing guidelines
+   - Guidelines and standards documented in comments or markdown files by developers
+
+Present your analysis inside <new_insights> tags.
+
+${description || ruleType ? (description && ruleType ? '7' : '6') : '5'}. Update the existing rules by:
+   - Preserving all valuable information from existing rules
+   - Maintaining the same structure and organization
+   - Adding new information only for patterns not already covered
+   - Being specific about code structure and patterns
+   - Including testing-related insights and best practices
+   - Being concise but comprehensive${ruleType ? `
+   - Following the rule type: "${ruleType}"` : ''}${description ? `
+   - Addressing the specific request: "${description}"` : ''}
+
+Include your final updated .cursorrules content inside <cursorrules> tags.
+Be concise - the final cursorrules file text must be not more than one page long.`;
+    }
+
+    const messages: LLMMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ];
+
+    process.stdout.write(`${pc.blue('🔄')} Sending to ${provider.displayName} ${config.model}... `);
+    
+    try {
+      const startTime = Date.now();
+      const response = await provider.generateResponse(messages, config);
+      currentSummary = response.content;
+      const endTime = Date.now();
+      const processingTime = ((endTime - startTime) / 1000).toFixed(2);
+      
+      process.stdout.write(pc.green('✓\n'));
+      
+      // Save intermediate output to file in the specified directory
+      const intermediateFileName = path.join(outputDir, `cursorrules_chunk_${index+1}_of_${totalChunks}.md`);
+      await fs.writeFile(intermediateFileName, currentSummary);
+      console.log(`${pc.green('✓')} Saved intermediate output to ${pc.blue(intermediateFileName)} ${pc.gray(`(${processingTime}s)`)}\n`);
+    } catch (error) {
+      process.stdout.write(pc.red('✗\n'));
+      if (error instanceof Error) {
+        throw new Error(`${pc.red('Error generating with')} ${provider.displayName} ${pc.red('on chunk')} ${index+1}: ${error.message}`);
+      }
+      throw new Error(`${pc.red('Unknown error occurred while generating with')} ${provider.displayName} ${pc.red('on chunk')} ${index+1}`);
+    }
+  }
+  
+  console.log(pc.green('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.green('│          PROCESSING COMPLETE            │'));
+  console.log(pc.green('└─────────────────────────────────────────┘\n'));
+  
+  // Only extract the cursorrules content at the very end
+  return extractCursorrules(currentSummary);
+}
+
+function generateMockResponse(repoContent: string): string {
+  // Extract some information from the repo content for the mock response
+  const repoLines = repoContent.split('\n');
+  const repoName = repoLines.find(line => line.includes('# Project:'))?.replace('# Project:', '').trim() || 'Repository';
+  
+  return `# .cursorrules for ${repoName}
+
+## Project Overview
+
+This project appears to be a TypeScript/Node.js application that processes GitHub repositories.
+
+## Coding Standards
+
+- Follow TypeScript best practices with strict typing
+- Use async/await for asynchronous operations
+- Prefer functional programming patterns where appropriate
+- Use descriptive variable and function names
+
+## File Structure Guidelines
+
+- Place core logic in the \`src/\` directory
+- Organize code by feature or functionality
+- Keep related functionality together
+- Use index.ts files for clean exports
+
+## Style Conventions
+
+- Use camelCase for variables and functions
+- Use PascalCase for classes and interfaces
+- Use 2-space indentation
+- End files with a newline
+
+## Testing Standards
+
+- Write unit tests for all functionality
+- Use descriptive test names
+- Follow AAA (Arrange-Act-Assert) pattern
+- Mock external dependencies
+
+## Error Handling
+
+- Use try/catch blocks for error handling
+- Provide descriptive error messages
+- Handle edge cases appropriately
+- Log errors with appropriate severity levels
+
+## Comments and Documentation
+
+- Document public APIs
+- Add comments for complex logic
+- Use JSDoc for function documentation
+- Keep comments up-to-date with code changes
+
+## Performance Considerations
+
+- Optimize for speed and efficiency
+- Use appropriate data structures
+- Minimize unnecessary computations
+- Consider memory usage for large operations
+
+## Security Best Practices
+
+- Validate all inputs
+- Avoid hardcoded credentials
+- Use proper error handling
+- Follow secure coding practices`;
+}
+</file>
+
+<file path="src/providers/anthropic-provider.ts">
+import Anthropic from '@anthropic-ai/sdk';
+import pc from 'picocolors';
+import { BaseLLMProvider } from './base-provider.js';
+import { LLMProviderConfig, LLMMessage, LLMResponse } from '../types/llm-provider.js';
+
+/**
+ * Anthropic Claude provider implementation
+ */
+export class AnthropicProvider extends BaseLLMProvider {
+  readonly name = 'anthropic';
+  readonly displayName = 'Anthropic Claude';
+  readonly requiresApiKey = true;
+  readonly defaultModel = 'claude-3-5-sonnet-20241022';
+
+  private client: Anthropic | null = null;
+
+  constructor() {
+    super();
+  }
+
+  /**
+   * Initialize the Anthropic client
+   */
+  private initializeClient(apiKey: string): Anthropic {
+    if (!this.client) {
+      this.client = new Anthropic({ apiKey });
+    }
+    return this.client;
+  }
+
+  /**
+   * Generate a response using Anthropic Claude
+   */
+  async generateResponse(
+    messages: LLMMessage[],
+    config: LLMProviderConfig
+  ): Promise<LLMResponse> {
+    try {
+      this.validateConfig(config);
+      
+      const client = this.initializeClient(config.apiKey!);
+      
+      // Convert messages to Anthropic format
+      const systemMessage = messages.find(msg => msg.role === 'system');
+      const userMessages = messages.filter(msg => msg.role === 'user' || msg.role === 'assistant');
+      
+      // Anthropic expects the last message to be from user
+      const lastMessage = userMessages[userMessages.length - 1];
+      const conversationMessages = userMessages.slice(0, -1).map(msg => ({
+        role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
+        content: msg.content
+      }));
+
+      const response = await client.messages.create({
+        model: config.model,
+        max_tokens: config.maxTokens || 8000,
+        system: systemMessage?.content,
+        messages: [
+          ...conversationMessages,
+          {
+            role: 'user',
+            content: lastMessage.content
+          }
+        ]
+      });
+
+      const content = this.extractContent(response);
+      const usage = this.extractUsage(response);
+
+      return {
+        content,
+        usage,
+        model: config.model,
+        provider: this.name
+      };
+    } catch (error) {
+      this.handleApiError(error, 'Anthropic API error');
+    }
+  }
+
+  /**
+   * Get available Anthropic models
+   */
+  getAvailableModels(): string[] {
+    return [
+      'claude-3-5-sonnet-20241022',
+      'claude-3-5-haiku-20241022',
+      'claude-3-opus-20240229',
+      'claude-3-sonnet-20240229',
+      'claude-3-haiku-20240307'
+    ];
+  }
+
+  /**
+   * Extract content from Anthropic response
+   */
+  protected extractContent(response: any): string {
+    if (response.content && Array.isArray(response.content) && response.content.length > 0) {
+      return response.content[0].text || '';
+    }
+    return '';
+  }
+
+  /**
+   * Extract usage information from Anthropic response
+   */
+  protected extractUsage(response: any): LLMResponse['usage'] {
+    if (response.usage) {
+      return {
+        promptTokens: response.usage.input_tokens || 0,
+        completionTokens: response.usage.output_tokens || 0,
+        totalTokens: response.usage.input_tokens + response.usage.output_tokens || 0
+      };
+    }
+    return undefined;
+  }
+}
+</file>
+
+<file path="src/providers/base-provider.ts">
+import pc from 'picocolors';
+import { LLMProvider, LLMProviderConfig, LLMMessage, LLMResponse } from '../types/llm-provider.js';
+
+/**
+ * Base class for LLM providers
+ * Provides common functionality and error handling
+ */
+export abstract class BaseLLMProvider implements LLMProvider {
+  abstract readonly name: string;
+  abstract readonly displayName: string;
+  abstract readonly requiresApiKey: boolean;
+  abstract readonly defaultModel: string;
+
+  /**
+   * Generate a response using the LLM
+   */
+  abstract generateResponse(
+    messages: LLMMessage[],
+    config: LLMProviderConfig
+  ): Promise<LLMResponse>;
+
+  /**
+   * Validate the provider configuration
+   */
+  validateConfig(config: LLMProviderConfig): void {
+    if (this.requiresApiKey && !config.apiKey) {
+      throw new Error(`${this.displayName} requires an API key. Please set the appropriate environment variable.`);
+    }
+
+    if (!config.model) {
+      throw new Error('Model is required for LLM generation');
+    }
+
+    if (config.maxTokens && config.maxTokens <= 0) {
+      throw new Error('maxTokens must be a positive number');
+    }
+
+    if (config.temperature && (config.temperature < 0 || config.temperature > 2)) {
+      throw new Error('temperature must be between 0 and 2');
+    }
+  }
+
+  /**
+   * Get available models for this provider
+   */
+  abstract getAvailableModels(): string[];
+
+  /**
+   * Handle API errors with proper formatting
+   */
+  protected handleApiError(error: unknown, context: string): never {
+    if (error instanceof Error) {
+      // Check for common API error patterns
+      if (error.message.includes('API key')) {
+        throw new Error(pc.red(`Authentication failed: ${error.message}`));
+      }
+      if (error.message.includes('rate limit') || error.message.includes('quota')) {
+        throw new Error(pc.yellow(`Rate limit exceeded: ${error.message}`));
+      }
+      if (error.message.includes('timeout')) {
+        throw new Error(pc.yellow(`Request timeout: ${error.message}`));
+      }
+      if (error.message.includes('network') || error.message.includes('connection')) {
+        throw new Error(pc.red(`Network error: ${error.message}`));
+      }
+      
+      throw new Error(pc.red(`${context}: ${error.message}`));
+    }
+    
+    throw new Error(pc.red(`${context}: Unknown error occurred`));
+  }
+
+  /**
+   * Format messages for the provider
+   */
+  protected formatMessages(messages: LLMMessage[]): LLMMessage[] {
+    return messages.map(msg => ({
+      ...msg,
+      content: msg.content.trim()
+    }));
+  }
+
+  /**
+   * Extract content from provider-specific response format
+   */
+  protected extractContent(response: any): string {
+    // This should be overridden by each provider
+    return response.content || response.text || '';
+  }
+
+  /**
+   * Extract usage information from provider-specific response format
+   */
+  protected extractUsage(response: any): LLMResponse['usage'] {
+    // This should be overridden by each provider
+    return undefined;
+  }
+}
+</file>
+
+<file path="src/providers/local-provider.ts">
+import pc from 'picocolors';
+import { BaseLLMProvider } from './base-provider.js';
+import { LLMProviderConfig, LLMMessage, LLMResponse } from '../types/llm-provider.js';
+
+/**
+ * Local OpenAI-compatible provider implementation
+ * Supports Ollama, LM Studio, and other OpenAI-compatible local APIs
+ */
+export class LocalProvider extends BaseLLMProvider {
+  readonly name = 'local';
+  readonly displayName = 'Local (OpenAI-compatible)';
+  readonly requiresApiKey = false;
+  readonly defaultModel = 'llama3.1';
+
+  /**
+   * Generate a response using a local OpenAI-compatible API
+   */
+  async generateResponse(
+    messages: LLMMessage[],
+    config: LLMProviderConfig
+  ): Promise<LLMResponse> {
+    try {
+      this.validateConfig(config);
+      
+      const baseURL = config.baseURL || 'http://localhost:11434/v1'; // Default Ollama URL
+      
+      // Convert messages to OpenAI format
+      const openaiMessages = this.formatMessages(messages).map(msg => ({
+        role: msg.role as 'system' | 'user' | 'assistant',
+        content: msg.content
+      }));
+
+      const response = await fetch(`${baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiKey && { 'Authorization': `Bearer ${config.apiKey}` })
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: openaiMessages,
+          max_tokens: config.maxTokens || 8000,
+          temperature: config.temperature || 0.7,
+          stream: false
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const content = this.extractContent(data);
+      const usage = this.extractUsage(data);
+
+      return {
+        content,
+        usage,
+        model: config.model,
+        provider: this.name
+      };
+    } catch (error) {
+      this.handleApiError(error, 'Local API error');
+    }
+  }
+
+  /**
+   * Get available local models
+   * Note: This is a static list as we can't query the local API without knowing the endpoint
+   */
+  getAvailableModels(): string[] {
+    return [
+      'llama3.1',
+      'llama3.1:8b',
+      'llama3.1:70b',
+      'llama3.2',
+      'llama3.2:3b',
+      'llama3.2:1b',
+      'codellama',
+      'codellama:7b',
+      'codellama:13b',
+      'codellama:34b',
+      'mistral',
+      'mistral:7b',
+      'mixtral',
+      'mixtral:8x7b',
+      'phi3',
+      'phi3:mini',
+      'gemma',
+      'gemma:2b',
+      'gemma:7b',
+      'qwen',
+      'qwen2',
+      'qwen2.5',
+      'deepseek-coder',
+      'starcoder2',
+      'wizardcoder',
+      'magicoder'
+    ];
+  }
+
+  /**
+   * Extract content from OpenAI-compatible response
+   */
+  protected extractContent(response: any): string {
+    if (response.choices && response.choices.length > 0) {
+      return response.choices[0].message?.content || '';
+    }
+    return '';
+  }
+
+  /**
+   * Extract usage information from OpenAI-compatible response
+   */
+  protected extractUsage(response: any): LLMResponse['usage'] {
+    if (response.usage) {
+      return {
+        promptTokens: response.usage.prompt_tokens || 0,
+        completionTokens: response.usage.completion_tokens || 0,
+        totalTokens: response.usage.total_tokens || 0
+      };
+    }
+    return undefined;
+  }
+
+  /**
+   * Validate local provider configuration
+   */
+  validateConfig(config: LLMProviderConfig): void {
+    super.validateConfig(config);
+    
+    if (config.baseURL && !this.isValidUrl(config.baseURL)) {
+      throw new Error('baseURL must be a valid URL');
+    }
+  }
+
+  /**
+   * Check if a string is a valid URL
+   */
+  private isValidUrl(urlString: string): boolean {
+    try {
+      new URL(urlString);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+</file>
+
+<file path="src/providers/openai-provider.ts">
+import OpenAI from 'openai';
+import pc from 'picocolors';
+import { BaseLLMProvider } from './base-provider.js';
+import { LLMProviderConfig, LLMMessage, LLMResponse } from '../types/llm-provider.js';
+
+/**
+ * OpenAI provider implementation
+ */
+export class OpenAIProvider extends BaseLLMProvider {
+  readonly name = 'openai';
+  readonly displayName = 'OpenAI';
+  readonly requiresApiKey = true;
+  readonly defaultModel = 'gpt-4o';
+
+  private client: OpenAI | null = null;
+
+  constructor() {
+    super();
+  }
+
+  /**
+   * Initialize the OpenAI client
+   */
+  private initializeClient(apiKey: string, baseURL?: string): OpenAI {
+    if (!this.client) {
+      this.client = new OpenAI({
+        apiKey,
+        baseURL,
+        timeout: 60000 // 60 seconds timeout
+      });
+    }
+    return this.client;
+  }
+
+  /**
+   * Generate a response using OpenAI
+   */
+  async generateResponse(
+    messages: LLMMessage[],
+    config: LLMProviderConfig
+  ): Promise<LLMResponse> {
+    try {
+      this.validateConfig(config);
+      
+      const client = this.initializeClient(config.apiKey!, config.baseURL);
+      
+      // Convert messages to OpenAI format
+      const openaiMessages = this.formatMessages(messages).map(msg => ({
+        role: msg.role as 'system' | 'user' | 'assistant',
+        content: msg.content
+      }));
+
+      const response = await client.chat.completions.create({
+        model: config.model,
+        messages: openaiMessages,
+        max_tokens: config.maxTokens || 8000,
+        temperature: config.temperature || 0.7
+      });
+
+      const content = this.extractContent(response);
+      const usage = this.extractUsage(response);
+
+      return {
+        content,
+        usage,
+        model: config.model,
+        provider: this.name
+      };
+    } catch (error) {
+      this.handleApiError(error, 'OpenAI API error');
+    }
+  }
+
+  /**
+   * Get available OpenAI models
+   */
+  getAvailableModels(): string[] {
+    return [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-4-turbo',
+      'gpt-4',
+      'gpt-3.5-turbo',
+      'gpt-3.5-turbo-16k'
+    ];
+  }
+
+  /**
+   * Extract content from OpenAI response
+   */
+  protected extractContent(response: any): string {
+    if (response.choices && response.choices.length > 0) {
+      return response.choices[0].message?.content || '';
+    }
+    return '';
+  }
+
+  /**
+   * Extract usage information from OpenAI response
+   */
+  protected extractUsage(response: any): LLMResponse['usage'] {
+    if (response.usage) {
+      return {
+        promptTokens: response.usage.prompt_tokens || 0,
+        completionTokens: response.usage.completion_tokens || 0,
+        totalTokens: response.usage.total_tokens || 0
+      };
+    }
+    return undefined;
+  }
+}
+</file>
+
+<file path="src/providers/provider-registry.ts">
+import pc from 'picocolors';
+import { LLMProvider, ProviderType, ProviderRegistry } from '../types/llm-provider.js';
+import { AnthropicProvider } from './anthropic-provider.js';
+import { OpenAIProvider } from './openai-provider.js';
+import { LocalProvider } from './local-provider.js';
+
+/**
+ * Registry for managing LLM providers
+ */
+export class LLMProviderRegistry implements ProviderRegistry {
+  private providers = new Map<string, LLMProvider>();
+
+  constructor() {
+    this.registerDefaultProviders();
+  }
+
+  /**
+   * Register a new provider
+   */
+  register(provider: LLMProvider): void {
+    this.providers.set(provider.name, provider);
+  }
+
+  /**
+   * Get a provider by type
+   */
+  getProvider(type: ProviderType): LLMProvider {
+    const provider = this.providers.get(type);
+    if (!provider) {
+      throw new Error(pc.red(`Provider '${type}' not found. Available providers: ${this.listProviderNames().join(', ')}`));
+    }
+    return provider;
+  }
+
+  /**
+   * Get a provider by name
+   */
+  getProviderByName(name: string): LLMProvider | undefined {
+    return this.providers.get(name);
+  }
+
+  /**
+   * List all registered providers
+   */
+  listProviders(): LLMProvider[] {
+    return Array.from(this.providers.values());
+  }
+
+  /**
+   * List provider names
+   */
+  listProviderNames(): string[] {
+    return Array.from(this.providers.keys());
+  }
+
+  /**
+   * Get provider information for display
+   */
+  getProviderInfo(): Array<{
+    name: string;
+    displayName: string;
+    requiresApiKey: boolean;
+    defaultModel: string;
+    availableModels: string[];
+  }> {
+    return this.listProviders().map(provider => ({
+      name: provider.name,
+      displayName: provider.displayName,
+      requiresApiKey: provider.requiresApiKey,
+      defaultModel: provider.defaultModel,
+      availableModels: provider.getAvailableModels()
+    }));
+  }
+
+  /**
+   * Register default providers
+   */
+  private registerDefaultProviders(): void {
+    this.register(new AnthropicProvider());
+    this.register(new OpenAIProvider());
+    this.register(new LocalProvider());
+  }
+
+  /**
+   * Validate provider configuration
+   */
+  validateProviderConfig(providerType: ProviderType, config: any): void {
+    const provider = this.getProvider(providerType);
+    provider.validateConfig(config);
+  }
+
+  /**
+   * Get environment variable name for API key based on provider
+   */
+  getApiKeyEnvVar(providerType: ProviderType): string {
+    switch (providerType) {
+      case 'anthropic':
+        return 'ANTHROPIC_API_KEY';
+      case 'openai':
+        return 'OPENAI_API_KEY';
+      case 'local':
+        return 'LOCAL_API_KEY'; // Optional for local providers
+      default:
+        throw new Error(`Unknown provider type: ${providerType}`);
+    }
+  }
+
+  /**
+   * Get default configuration for a provider
+   */
+  getDefaultConfig(providerType: ProviderType): any {
+    const provider = this.getProvider(providerType);
+    const apiKeyEnvVar = this.getApiKeyEnvVar(providerType);
+    
+    return {
+      model: provider.defaultModel,
+      apiKey: process.env[apiKeyEnvVar],
+      maxTokens: 8000,
+      temperature: 0.7,
+      ...(providerType === 'local' && { baseURL: 'http://localhost:11434/v1' })
+    };
+  }
+}
+</file>
+
+<file path="src/types/llm-provider.ts">
+/**
+ * LLM Provider Types and Interfaces
+ * 
+ * This module defines the interfaces and types for different LLM providers
+ * to ensure consistent API across all supported providers.
+ */
+
+export interface LLMProviderConfig {
+  apiKey?: string;
+  baseURL?: string;
+  model: string;
+  maxTokens?: number;
+  temperature?: number;
+  timeout?: number;
+}
+
+export interface LLMMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface LLMResponse {
+  content: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  model: string;
+  provider: string;
+}
+
+export interface LLMProvider {
+  /**
+   * The name of the provider (e.g., 'anthropic', 'openai', 'local')
+   */
+  readonly name: string;
+  
+  /**
+   * The display name for the provider
+   */
+  readonly displayName: string;
+  
+  /**
+   * Whether this provider requires an API key
+   */
+  readonly requiresApiKey: boolean;
+  
+  /**
+   * Default model for this provider
+   */
+  readonly defaultModel: string;
+  
+  /**
+   * Generate a response using the LLM
+   */
+  generateResponse(
+    messages: LLMMessage[],
+    config: LLMProviderConfig
+  ): Promise<LLMResponse>;
+  
+  /**
+   * Validate the provider configuration
+   */
+  validateConfig(config: LLMProviderConfig): void;
+  
+  /**
+   * Get available models for this provider
+   */
+  getAvailableModels(): string[];
+}
+
+export type ProviderType = 'anthropic' | 'openai' | 'local';
+
+export interface ProviderRegistry {
+  register(provider: LLMProvider): void;
+  getProvider(type: ProviderType): LLMProvider;
+  getProviderByName(name: string): LLMProvider | undefined;
+  listProviders(): LLMProvider[];
+}
+
+export interface ChunkProcessingOptions {
+  chunk: string;
+  index: number;
+  tokenCount: number;
+  totalChunks: number;
+  currentSummary?: string;
+  description?: string;
+  ruleType?: string;
+  guidelines: string;
+}
+</file>
+
+<file path="test-repomix.txt">
+# Project: test-repository
+
+## Directory Structure
+- src/
+  - index.ts
+  - utils.ts
+  - components/
+    - Button.tsx
+    - Modal.tsx
+- tests/
+  - index.test.ts
+  - utils.test.ts
+- package.json
+- README.md
+
+## Key Files
+### src/index.ts
+This is the main entry point of the application.
+
+### src/utils.ts
+Contains utility functions for the application.
+
+### src/components/Button.tsx
+A React button component with TypeScript.
+
+## Technologies Used
+- TypeScript
+- React
+- Node.js
+- Jest for testing
+</file>
+
+<file path=".eslintrc.json">
+{
+  "env": {
+    "es2022": true,
+    "node": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "plugins": [
+    "@typescript-eslint"
+  ],
+  "rules": {
+    "indent": ["error", 2],
+    "linebreak-style": ["error", "unix"],
+    "quotes": ["error", "single", { "avoidEscape": true }],
+    "semi": ["error", "always"],
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/explicit-function-return-type": ["error", { "allowExpressions": true }],
+    "@typescript-eslint/no-explicit-any": "error"
+  }
+}
+</file>
+
+<file path=".github/workflows/ci.yml">
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run build
+    - run: npm run lint
+    - run: npm test
+
+  publish:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+</file>
+
+<file path="bin/rulefy.cjs">
+#!/usr/bin/env node
+
+const nodeVersion = process.versions.node;
+const [major] = nodeVersion.split('.').map(Number);
+
+const EXIT_CODES = {
+  SUCCESS: 0,
+  ERROR: 1,
+};
+
+if (major < 18) {
+  console.error(`Rulefy requires Node.js version 18 or higher. Current version: ${nodeVersion}\n`);
+  process.exit(EXIT_CODES.ERROR);
+}
+
+function setupErrorHandlers() {
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    process.exit(EXIT_CODES.ERROR);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Promise Rejection:', reason);
+    process.exit(EXIT_CODES.ERROR);
+  });
+
+  function shutdown() {
+    process.exit(EXIT_CODES.SUCCESS);
+  }
+
+  process.on('SIGINT', () => {
+    console.log('\nReceived SIGINT. Shutting down...');
+    shutdown();
+  });
+  process.on('SIGTERM', shutdown);
+}
+
+(async () => {
+  try {
+    setupErrorHandlers();
+
+    const { run } = await import('../lib/index.js');
+    await run();
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Fatal Error:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+    } else {
+      console.error('Fatal Error:', error);
+    }
+
+    process.exit(EXIT_CODES.ERROR);
+  }
+})();
+</file>
+
+<file path="CHANGELOG.md">
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2025-03-23
+
+### Added
+
+- Initial release
+- Support for transforming GitHub repositories into cursor rules
+- Integration with Claude Sonnet 3.5
+- Support for custom guidelines files
+- Command-line interface with basic options
+</file>
+
+<file path="CONTRIBUTING.md">
+# Contributing to Rulefy
+
+Thank you for considering contributing to Rulefy! This document provides guidelines and instructions for contributing.
+
+## Code of Conduct
+
+By participating in this project, you agree to abide by its Code of Conduct.
+
+## How Can I Contribute?
+
+### Reporting Bugs
+
+- Check if the bug has already been reported in the Issues section
+- Use the bug report template to create a new issue
+- Include detailed steps to reproduce the bug
+- Include your environment details (OS, Node.js version, etc.)
+
+### Suggesting Enhancements
+
+- Check if the enhancement has already been suggested in the Issues section
+- Use the feature request template to create a new issue
+- Describe the enhancement in detail and explain why it would be useful
+
+### Pull Requests
+
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests and linting (`npm test && npm run lint`)
+5. Commit your changes (`git commit -m 'Add some amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+## Development Setup
+
+1. Clone the repository
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Build the project:
+   ```
+   npm run build
+   ```
+4. Run tests:
+   ```
+   npm test
+   ```
+
+## Styleguides
+
+### Git Commit Messages
+
+- Use the present tense ("Add feature" not "Added feature")
+- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+- Limit the first line to 72 characters or less
+- Reference issues and pull requests liberally after the first line
+
+### JavaScript/TypeScript Styleguide
+
+- Use 2 spaces for indentation
+- Use semicolons
+- Follow the ESLint configuration
+
+### Documentation Styleguide
+
+- Use Markdown for documentation
+- Reference examples when possible
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the project's MIT License.
+</file>
+
+<file path="cursorrules-guidelines.md">
+**Guidelines for Creating Content for** .cursorrules
+
+`.cursorrules` files serve as customized instruction sets for Cursor AI, tailoring its code generation behavior to specific project requirements. These files should be placed in the repository root to provide project-wide context and guidelines.
+
+**1\. Use Markdown for Documentation**
+
+* All documentation within .cursorrules files or accompanying READMEs must be written in Markdown to ensure consistency and readability.  
+* **Example**: The README.md uses Markdown with sections like \# Awesome CursorRules, \#\# Why .cursorrules?, and \- \[Angular (Novo Elements)\](...) for lists.
+
+**2\. Maintain a Clear Structure**
+
+* Organize content logically with clear sections (e.g., general guidelines, project-specific rules, file structure) to provide context and instructions effectively.  
+* **Example**: In rules/android-jetpack-compose-cursorrules-prompt-file/.cursorrules, content is divided into sections like // Project Architecture and Best Practices, // Folder Structure, and // Compose UI Guidelines.
+
+**3\. Categorize Rules by Technology and Purpose**
+
+* Group rules into categories such as frontend frameworks, backend, mobile development, etc., to align with the repository's organization and make them easily discoverable.  
+* **Example**: The README.md categorizes rules like \[Angular (Novo Elements)\] under "Frontend Frameworks and Libraries" and \[Python (FastAPI)\] under "Backend and Full-Stack".
+
+**4\. Use Descriptive Naming Conventions**
+
+* Name .cursorrules files and folders using the pattern technology-focus-cursorrules-prompt-file to clearly indicate the technology and purpose.  
+* **Example**: rules/angular-novo-elements-cursorrules-prompt-file/.cursorrules specifies Angular with Novo Elements integration.
+
+**5\. Provide Project-Specific Context**
+
+* Include details about the project’s structure, architectural decisions, and commonly used libraries or methods to guide AI behavior.  
+* **Example**: In rules/android-jetpack-compose-cursorrules-prompt-file/.cursorrules, the folder structure (app/src/main/java/com/package/...) and best practices (Use Kotlin coroutines and Flow for asynchronous operations) provide specific context.
+
+**6\. Include Comments for Clarity**
+
+* Use comments within .cursorrules files to explain complex rules, provide context, or clarify intent, enhancing AI understanding.  
+* **Example**: // Note: This is a recommended project structure, but be flexible and adapt to existing project structures in rules/android-jetpack-compose-cursorrules-prompt-file/.cursorrules.
+
+**7\. Focus on Best Practices and Standards**
+
+* Define coding standards, best practices, and style guidelines specific to the technology or framework to ensure consistent, high-quality output.  
+* **Example**: Follow Material Design 3 guidelines and components and Implement dependency injection using Hilt in rules/android-jetpack-compose-cursorrules-prompt-file/.cursorrules.
+
+**8\. Specify File Globs in Accompanying** .mdc **Files**
+
+* Use .mdc files alongside .cursorrules to apply rules to specific file patterns with globs, ensuring targeted application of guidelines.  
+* **Example**: In android-jetpack-compose---ui-guidelines.mdc, globs: app/src/main/java/com/package/presentation/\*\*/\*.kt targets presentation-layer Kotlin files.
+
+**9\. Define Flexible yet Consistent Structures**
+
+* Suggest recommended structures (e.g., folder layouts) but allow flexibility to adapt to existing project organizations, maintaining consistency where possible.  
+* **Example**: // Note: This is a reference structure. Adapt to the project's existing organization followed by a detailed projectStructure in rules/android-jetpack-compose-cursorrules-prompt-file/.cursorrules.
+
+**10\. Incorporate Clean Code Principles**
+
+* Embed principles like DRY, KISS, YAGNI, and the Boy-Scout Rule to guide AI toward maintainable, efficient code.  
+* **Example**: In rules/angular-novo-elements-cursorrules-prompt-file/.cursorrules, \# Clean Code section includes Don't Repeat Yourself (DRY) and Keep It Simple Stupid (KISS).
+
+**11\. Use Constants or Lists for Guidelines**
+
+* Present rules as constants or bulleted lists for clarity and to make them easily digestible by both humans and AI.  
+* **Example**: const androidJetpackComposeBestPractices \= \[...\] in rules/android-jetpack-compose-cursorrules-prompt-file/.cursorrules lists best practices like Use Compose navigation for screen management.
+
+**12\. Address Multiple Aspects of Development**
+
+* Cover various development facets (e.g., architecture, UI, testing, performance) to provide comprehensive guidance.  
+* **Example**: rules/android-jetpack-compose-cursorrules-prompt-file/.cursorrules includes // Testing Guidelines (Write unit tests for ViewModels and UseCases) and // Performance Guidelines (Minimize recomposition using proper keys).
+
+**13\. Include Technology-Specific Rules**
+
+* Tailor rules to the specific technology stack, mentioning libraries, frameworks, or tools relevant to the project.  
+* **Example**: I'm integrating novo elements which is the novo-elements module and links to documentation in rules/angular-novo-elements-cursorrules-prompt-file/.cursorrules.
+
+**14\. Avoid General Coding Practices Alone**
+
+* Focus on repo-specific rules rather than generic coding advice, ensuring relevance to the project’s unique needs.  
+* **Example**: Instead of generic advice, rules/angular-novo-elements-cursorrules-prompt-file/.cursorrules specifies I'm using angular with standalone components and I don’t have a module file.
+
+**15\. Maintain Alphabetical Order in Listings**
+
+* When listing rules or categories (e.g., in READMEs), maintain alphabetical order for ease of navigation.  
+* **Example**: In README.md, rules under "Frontend Frameworks and Libraries" are listed alphabetically from \[Angular (Novo Elements)\] to \[Vue 3 (Composition API)\].
+
+**16\. Use Clear and Concise Language**
+
+* Write rules in straightforward, concise language to ensure clarity for both AI interpretation and human review.  
+* **Example**: Use proper lazy loading with LazyColumn and LazyRow in rules/android-jetpack-compose-cursorrules-prompt-file/android-jetpack-compose---performance-guidelines.mdc.
+
+**17\. Include Practical Use Cases**
+
+* Provide examples or scenarios where rules apply to help AI apply them effectively in real-world contexts.  
+* **Example**: Use proper theming with MaterialTheme and Implement proper animation patterns in rules/android-jetpack-compose-cursorrules-prompt-file/android-jetpack-compose---ui-guidelines.mdc imply practical UI implementation.
+
+**18\. Support Cross-Referencing if Applicable**
+
+* If a rule fits multiple categories, place it in the most relevant one and cross-reference it elsewhere if necessary.  
+* **Example**: While not explicitly shown, the guideline in .cursorrules suggests this for rules spanning categories like \[TypeScript (Next.js)\] under both "Frontend" and "Language-Specific".
+
+**19\. Handle Specific File Types or Patterns**
+
+* Include rules for specific file types or coding patterns unique to the project to guide AI in specialized tasks.  
+* **Example**: rules/angular-novo-elements-cursorrules-prompt-file/angular-standalone-component-rules.mdc specifies globs: \*\*/\*.ts with This project uses Angular with standalone components.
+
+**20\. Regularly Update and Review Content**
+
+* Ensure rules remain current with project evolution, updating them as technologies or requirements change.  
+* **Example**: Implied in .cursorrules with Regularly review and update categorization as the repository grows, applicable to individual .cursorrules files.
+</file>
+
+<file path="LICENSE">
+MIT License
+
+Copyright (c) 2025 Nik
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path="src/prompts/cursor_mdc.md">
+# Cursor AI Rules Format (.mdc) and Best Practices
+
+## File Format Structure
+
+Cursor rules use Markdown files with a .mdc extension and must follow a specific structure:
+
+1. FrontMatter Section (YAML format at the top of the file)
+
+
+  ```mdc
+  ---
+  description: Comprehensive description that provides full context and clearly indicates when this rule should be applied. Include key scenarios, impacted areas, and why following this rule is important. While being thorough, remain focused and relevant. The description should be detailed enough that the agent can confidently determine whether to apply the rule in any given situation.
+  globs: Glob pattern for the files that should be checked and applied by the rule. For example: `src/**/*.{js,ts,jsx,tsx}` OR blank (if the rule should be applied to all files)
+  alwaysApply: `true` (if always applied) or `false` (if the rule should be applied only when certain conditions are met, like file patterns or manually selected)
+  ---
+  ```
+
+2. Rule Body Section (Markdown format):
+
+  ```mdc
+  # Rule Title
+
+  ## Critical Rules
+
+  - Concise, bulleted list of actionable rules the agent MUST follow
+
+  3. Examples Section (demonstrating valid and invalid usages)
+
+  ```mdc
+  ## Examples
+
+  <example>
+  {valid rule application}
+  </example>
+
+  <example type="invalid">
+  {invalid rule application}
+  </example>
+  ```
+
+3. Example Format:
+
+  ```mdc
+  <example>
+  ```
+
+4. File and Path References in Rules
+
+Optionally, you can reference files and folders using the mdc: hyperlink format. This creates clickable links that help the AI access file content and understand context by referencing existing code.
+
+**Syntax:** `[link text](mdc:path/to/file.ext)`
+**Example:** 
+  ```mdc
+  [factories.py](mdc:server/users/tests/factories.py)
+  ```
+
+## Example of The Complete Rule File
+
+  ```mdc
+  ---
+  description: "This rule should be applied when extending or testing the user authentication module. It ensures consistent implementation of security practices and proper test coverage."
+  globs: "src/auth/**/*.{js,ts,jsx,tsx}"
+  alwaysApply: false
+  ---
+
+  # User Authentication Module Extension Rules
+
+  ## Critical Rules
+
+  - All authentication functions MUST validate input parameters before processing
+  - Password handling MUST use the established hashing utilities in `src/auth/utils/hash.js`
+  - JWT token generation MUST use the approved signing methods with proper expiration
+  - All new authentication endpoints MUST implement rate limiting
+  - Test coverage MUST include happy path, error cases, and security edge cases
+  - Mock external dependencies when testing to ensure unit test isolation
+
+  ## Examples
+
+  <example>
+  // VALID: Proper password handling with input validation
+  function resetPassword(userId, newPassword) {
+    // Validate inputs
+    if (!userId || !newPassword) {
+      throw new Error('Missing required parameters');
+    }
+    
+    if (newPassword.length < 8) {
+      throw new Error('Password must be at least 8 characters');
+    }
+    
+    // Use established hashing utility
+    const hashedPassword = hashUtils.hashPassword(newPassword);
+    
+    // Update in database
+    return userRepository.updatePassword(userId, hashedPassword);
+  }
+
+  // Test with proper mocking and edge cases
+  describe('resetPassword', () => {
+    beforeEach(() => {
+      jest.spyOn(hashUtils, 'hashPassword').mockReturnValue('hashed_password');
+      jest.spyOn(userRepository, 'updatePassword').mockResolvedValue(true);
+    });
+    
+    it('should hash password and update repository', async () => {
+      await resetPassword('user123', 'newSecurePass');
+      expect(hashUtils.hashPassword).toHaveBeenCalledWith('newSecurePass');
+      expect(userRepository.updatePassword).toHaveBeenCalledWith('user123', 'hashed_password');
+    });
+    
+    it('should throw error for invalid inputs', async () => {
+      await expect(resetPassword(null, 'password')).rejects.toThrow('Missing required parameters');
+      await expect(resetPassword('user123', 'short')).rejects.toThrow('Password must be at least 8 characters');
+    });
+  });
+  </example>
+
+  <example type="invalid">
+  // INVALID: Direct password handling without validation
+  function changeUserPassword(user, pass) {
+    // Directly storing password without validation or proper hashing
+    const hashedPw = md5(pass); // Using weak hashing algorithm
+    
+    db.query(`UPDATE users SET password = '${hashedPw}' WHERE id = ${user}`);
+    return true;
+  }
+
+  // Test missing edge cases and using real database
+  test('password change works', () => {
+    // No input validation testing
+    // Using actual database instead of mocks
+    expect(changeUserPassword(5, 'newpass')).toBe(true);
+  });
+  </example>
+
+
+  Files to use:
+
+  - [README.md](mdc:README.md) to understand the general project structure
+  - [auth_contribution_guide.md](mdc:auth/docs/auth_contribution_guide.md) to understand the auth module structure and contribution guidelines
+  - [auth-unit-test.js](mdc:templates/tests/auth-unit-test-base.js) to understand the unit test structure
+  - [auth-e2e-test.js](mdc:templates/tests/auth-e2e-test-base.js) to understand the e2e test structure
+  ```
+
+## Rule Types
+There are four primary rule types, each with specific configuration:
+
+### Agent Selected Rules
+- Comprehensive description field explaining when to apply
+- Blank globs field
+- alwaysApply: false
+- For targeted use cases where the AI decides when to apply
+
+### Always Rules
+- Blank description field
+- Blank globs field
+- alwaysApply: true
+- Applied to every chat and cmd/ctrl-k context
+
+### Auto Rules
+- Blank description field
+- Critical glob pattern defining which files it applies to
+- alwaysApply: false
+- Automatically applied to matching files
+
+### Manual Rules
+- Blank description and globs fields
+- alwaysApply: false
+- Must be explicitly referenced with @ symbol to apply
+
+
+## Best Practices
+
+### Rule Content
+- Focus on actionable, clear directives without unnecessary explanation
+- Keep rules concise (25 lines ideal, 50 lines maximum)
+- Include both valid and invalid examples for better AI understanding
+- Use emojis and Mermaid diagrams when helpful for AI comprehension
+
+### FrontMatter Configuration
+- For Agent rules: Include comprehensive description about when to apply
+- For Auto rules: Use proper glob patterns (no quotes, no curly braces)
+- Always include all three fields even if some are blank
+
+### Examples Section
+- Always include at least one valid and one invalid example
+- Indent content within XML Example section with 2 spaces
+- If a mistake was made previously, use it in the example
+
+### Rule Management
+- Let AI handle rule creation and updates
+- Prune rules that become redundant
+- Consolidate small rules on the same concept
+- Remove unnecessary rules as models improve or codebase grows
+
+
+By following these formats and best practices, you can create effective rules that enhance the AI's capabilities while maintaining a clean and organized rule structure in your projects 🚀
+</file>
+
+<file path="test-output-dir.js">
+// Test script for testing output directory functionality
+import { rulesGenerate } from './lib/rulesGenerate.js';
+
+// Set a dummy API key for testing
+process.env.ANTHROPIC_API_KEY = 'dummy-key';
+
+// Run the test
+async function runTest() {
+  try {
+    console.log('Testing output directory functionality...');
+    
+    // Test with a local path and custom output directory
+    await rulesGenerate('.', {
+      provider: 'claude-sonnet-3.5-latest', 
+      outputDir: './test-output',
+      guidelinesPath: './cursorrules-guidelines.md'
+    });
+    
+    console.log('Test completed successfully!');
+  } catch (error) {
+    console.error('Test failed:', error);
+    process.exit(1);
+  }
+}
+
+runTest();
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": true,
+    "outDir": "lib",
+    "declaration": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "lib"]
+}
+</file>
+
+<file path=".gitignore">
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build output
+lib/
+dist/
+build/
+coverage/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+
+# Testing
+.nyc_output/
+
+# Temporary project output
+*-output/
+*.rules.mdc
+# Private individual user cursor rules
+.cursor/rules/_*.mdc
+</file>
+
+<file path=".npmignore">
+# Source
+src/
+!src/prompts/
+tests/
+
+# CI/CD
+.github/
+.travis.yml
+.gitlab-ci.yml
+.circleci/
+
+# Config files
+.eslintrc
+.eslintignore
+tsconfig.json
+.prettierrc
+vitest.config.ts
+jest.config.js
+
+# Git files
+.git/
+.gitignore
+
+# Development
+coverage/
+.vscode/
+.idea/
+*.log
+.DS_Store
+
+# Testing
+tests/
+**/*.test.ts
+**/*.spec.ts
+*-output/
+
+# Temporary files
+tmp/
+temp/
+</file>
+
+<file path="README.md">
+# Rulefy
+
+[![npm version](https://img.shields.io/npm/v/rulefy.svg)](https://www.npmjs.com/package/rulefy)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/rulefy.svg)](https://nodejs.org/)
+
+**Supercharge your Cursor AI with codebase-specific intelligence.** Rulefy transforms your GitHub repositories into custom rules that teach Cursor AI how your project works, resulting in more accurate code suggestions, better refactoring, and contextually aware assistance. Now supports multiple LLM providers including Anthropic Claude, OpenAI, and local models like Ollama.
+
+## Why Rulefy?
+
+- ✅ **Instant Expertise**: Your AI assistant immediately understands your project conventions and architecture
+- ✅ **Better Suggestions**: Get code completions that match your project's style and patterns
+- ✅ **Fewer Hallucinations**: Rules constrain the AI to work within your codebase's patterns and dependencies
+- ✅ **Zero Learning Curve**: One command to analyze your repo and generate optimized rules
+
+
+## Features
+
+- 🚀 Analyze GitHub repositories or local codebases with a single command
+- 🧩 Intelligently extract project structure, conventions, and patterns
+- 📚 Handles large codebases that exceed the token limit for LLMs
+- 🤖 Generate tailored Cursor rules using multiple LLM providers
+- 🔌 **Multi-Provider Support**: Anthropic Claude, OpenAI, Ollama, LM Studio, and more
+- 🏠 **Local AI Support**: Use your own models with Ollama or LM Studio
+- 📝 Create production-ready .rules.mdc files for immediate use
+- 🔧 Customize analysis with flexible configuration options
+
+## Installation
+
+```bash
+# Install globally
+npm install -g rulefy
+
+# Or use with npx (no installation required)
+npx rulefy
+```
+
+## Prerequisites
+
+- Node.js 18 or higher
+- API key for your chosen provider (see Provider Setup below)
+
+### Provider Setup
+
+#### Anthropic Claude (Default)
+```bash
+export ANTHROPIC_API_KEY='your-anthropic-api-key'
+```
+
+#### OpenAI
+```bash
+export OPENAI_API_KEY='your-openai-api-key'
+```
+
+#### Local Models (Ollama, LM Studio, etc.)
+No API key required! Just make sure your local service is running.
+
+## Usage
+
+The basic command structure is:
+
+```bash
+rulefy <repo-path>
+```
+
+Examples:
+
+```bash
+# Inside a repository (uses Anthropic Claude by default)
+rulefy
+
+# Using OpenAI
+rulefy --provider openai --model gpt-4o
+
+# Using local Ollama model
+rulefy --provider local --model llama3.1 --base-url http://localhost:11434/v1
+
+# Using local LM Studio
+rulefy --provider local --model llama3.1 --base-url http://localhost:1234/v1
+
+# Using local repository path
+rulefy ./my-local-project/subdir
+
+# Using GitHub URL
+rulefy --remote https://github.com/fastapi/fastapi
+
+# Rulefy with specific description as an option
+rulefy --description "guidelines for extending the component using the base interface"
+
+# Specify Cursor AI rule type
+rulefy --rule-type "agent" --description "coding standards for React components"
+
+# List available providers and models
+rulefy --list-providers
+
+# Use existing repomix output file
+rulefy --repomix-file ./my-repo-output.txt
+
+# Use repomix file with specific provider
+rulefy --repomix-file ./output.txt --provider openai --model gpt-4o
+```
+
+This will:
+1. Fetch the repository content
+2. Based on the content, generate rules for Cursor AI
+3. Save the output to a `<repo-name>.rules.mdc` file
+
+### Options
+
+```
+Options:
+  --provider <provider>    LLM provider to use (anthropic, openai, local) (default: anthropic)
+  --model <model>          Specific model to use (overrides provider default)
+  --api-key <key>          API key for the provider (or set environment variable)
+  --base-url <url>         Base URL for the API (useful for local providers)
+  --max-tokens <tokens>    Maximum tokens for response (default: 8000)
+  --temperature <temp>     Temperature for generation (0-2, default: 0.7)
+  --description <text>     Description of what should be rulefied
+  --rule-type <type>       Type of rule to generate (auto, manual, agent, always)
+  --chunk-size <size>      Chunk size for processing (default: 100000)
+  --repomix-file <path>    Path to existing repomix output file (skips repomix execution)
+  --list-providers         List available providers and their models
+  -h, --help               display help for command
+```
+
+## Supported Providers
+
+### Anthropic Claude (Default)
+- **Models**: claude-3-5-sonnet, claude-3-5-haiku, claude-3-opus, claude-3-sonnet, claude-3-haiku
+- **API Key**: `ANTHROPIC_API_KEY`
+- **Best for**: High-quality code analysis and rule generation
+
+### OpenAI
+- **Models**: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
+- **API Key**: `OPENAI_API_KEY`
+- **Best for**: Fast processing and cost-effective analysis
+
+### Local Models (Ollama, LM Studio, etc.)
+- **Models**: llama3.1, codellama, mistral, mixtral, phi3, gemma, qwen, and more
+- **API Key**: Optional (`LOCAL_API_KEY`)
+- **Best for**: Privacy, offline usage, and custom models
+
+### Setting up Local Models
+
+#### Ollama
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull llama3.1
+
+# Run rulefy with Ollama
+rulefy --provider local --model llama3.1
+```
+
+#### LM Studio
+1. Download and install [LM Studio](https://lmstudio.ai/)
+2. Load a model in LM Studio
+3. Start the local server
+4. Run rulefy with the LM Studio URL:
+```bash
+rulefy --provider local --model llama3.1 --base-url http://localhost:1234/v1
+```
+
+## Using Existing Repomix Files
+
+If you already have a repomix output file, you can use it directly without running repomix again:
+
+```bash
+# Use existing repomix file
+rulefy --repomix-file ./my-repo-output.txt
+
+# Use with specific provider and model
+rulefy --repomix-file ./output.txt --provider local --model llama3.1
+
+# Use with custom description
+rulefy --repomix-file ./output.txt --description "React component guidelines"
+```
+
+This is useful when:
+- You want to reuse previously generated repomix output
+- You have a custom repomix configuration
+- You want to process the same repository with different LLM providers
+- You want to avoid running repomix multiple times
+
+`rulefy` supports [all options supported by `repomix`](https://github.com/yamadashy/repomix/tree/main?tab=readme-ov-file#-usage). For example, select specific files:
+
+```bash
+rulefy --include "src/**/*.ts" --compress
+```
+
+## Installing Rules in Cursor
+
+After generating your rules file, you'll need to install it in Cursor:
+
+1. Open Cursor editor
+2. Go to Settings > AI > Rules
+3. Click "Add Rules File" and select your generated `<filename>.rules.mdc` file
+4. Restart Cursor to apply the new rules
+
+For more detailed instructions, see the [official Cursor documentation](https://docs.cursor.com/context/rules-for-ai).
+
+## Example Output
+
+The generated `.rules.mdc` file will contain structured guidelines for Cursor AI when working with your codebase:
+
+```markdown
+# .cursorrules for my-project
+
+## Project Overview
+This project is a TypeScript application that...
+
+## Coding Standards
+- Follow TypeScript best practices with strict typing
+- Use async/await for asynchronous operations
+...
+
+## File Structure Guidelines
+- Place core logic in the `src/` directory
+...
+```
+
+## Best Practices
+
+### Minimize context length, cost and rate limits
+
+If you encounter rate limits or ihigh costs, try to minimize the context length using the following ways:
+
+- Use `rulefy --compress` to compress the context length
+- Use `rulefy --include` to include only the files you need with globs
+- Use `rulefy --exclude` to exclude the files you don't need with globs
+- Control the size of the chunk being processed by one go by using the `--chunk-size` option. (default is `--chunk-size 100000`)
+
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+
+## Acknowledgements
+
+This project is inspired by and builds upon the work of:
+
+- [repomix](https://github.com/yamadashy/repomix) - A tool for converting repositories into textual representations
+- [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) - A curated list of cursor rules for different projects and languages
+- [cursor-custom-agents-rules-generator](https://github.com/bmadcode/cursor-custom-agents-rules-generator) - best practices for Cursor custom agents and rules generator
+
+We're grateful to these projects for their contributions to the developer tooling ecosystem.
+</file>
+
+<file path="src/index.ts">
+import process from 'node:process';
+import { Command } from 'commander';
+import pc from 'picocolors';
+import { rulesGenerate } from './rulesGenerate.js';
+import { LLMProviderRegistry } from './providers/provider-registry.js';
+
+export const run = async (): Promise<void> => {
+  try {
+    const program = new Command();
+    const registry = new LLMProviderRegistry();
+    
+    program
+      .description('Rulefy - Transform GitHub repositories into cursor rules instructions')
+      .argument('[repo-path]', 'Path to the repository', '.')
+      .allowExcessArguments(true)
+      .option('--provider <provider>', 'LLM provider to use (anthropic, openai, local)', 'anthropic')
+      .option('--model <model>', 'Specific model to use (overrides provider default)')
+      .option('--api-key <key>', 'API key for the provider (or set environment variable)')
+      .option('--base-url <url>', 'Base URL for the API (useful for local providers)')
+      .option('--max-tokens <tokens>', 'Maximum tokens for response (default: 8000)', '8000')
+      .option('--temperature <temp>', 'Temperature for generation (0-2, default: 0.7)', '0.7')
+      .option('--description <text>', 'Description of what should be rulefied')
+      .option('--rule-type <type>', 'Type of rule to generate (auto, manual, agent, always)')
+      .option('--chunk-size <size>', 'Chunk size for the repository to be processed in one go (default: 100000)', '100000')
+      .option('--repomix-file <path>', 'Path to existing repomix output file (skips repomix execution)')
+      .option('--list-providers', 'List available providers and their models')
+      .allowUnknownOption(true);
+
+    program.parse(process.argv);
+
+    const options = program.opts();
+    const args = program.args;
+
+    // Handle list providers option
+    if (options.listProviders) {
+      console.log(pc.bold('\n📋 Available LLM Providers:\n'));
+      const providers = registry.getProviderInfo();
+      
+      providers.forEach(provider => {
+        console.log(pc.cyan(`${provider.displayName} (${provider.name}):`));
+        console.log(`  Default Model: ${pc.green(provider.defaultModel)}`);
+        console.log(`  Requires API Key: ${provider.requiresApiKey ? pc.red('Yes') : pc.green('No')}`);
+        console.log(`  Available Models: ${provider.availableModels.slice(0, 5).join(', ')}${provider.availableModels.length > 5 ? '...' : ''}`);
+        console.log('');
+      });
+      
+      console.log(pc.yellow('Environment Variables:'));
+      console.log('  ANTHROPIC_API_KEY - For Anthropic Claude');
+      console.log('  OPENAI_API_KEY - For OpenAI');
+      console.log('  LOCAL_API_KEY - For local providers (optional)');
+      console.log('');
+      return;
+    }
+
+    // Find the repository path (first argument that doesn't start with --)
+    const repoPathIndex = args.findIndex(arg => !arg.startsWith('--'));
+    const repoPath = repoPathIndex >= 0 ? args[repoPathIndex] : '.';
+    
+    console.log(pc.bold(`\n🧩 Rulefy - Generating cursor rules for ${repoPath}\n`));
+    
+    // Display provider information
+    try {
+      const provider = registry.getProvider(options.provider);
+      console.log(pc.cyan(`Using provider: ${provider.displayName}`));
+      console.log(pc.cyan(`Model: ${options.model || provider.defaultModel}`));
+      if (options.baseUrl) {
+        console.log(pc.cyan(`Base URL: ${options.baseUrl}`));
+      }
+      console.log('');
+    } catch (error) {
+      console.error(pc.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+    
+    if (options.description) {
+      console.log(pc.cyan(`Rulefying with description: "${options.description}"\n`));
+    }
+    
+    // Create a dictionary for additional options
+    const additionalOptions: Record<string, string> = {};
+    
+    // Known options already handled by Commander
+    const knownOptions = ['provider', 'model', 'api-key', 'base-url', 'max-tokens', 'temperature', 'description', 'rule-type', 'chunk-size', 'repomix-file', 'list-providers'];
+    const knownOptionFlags = knownOptions.map(opt => `--${opt}`);
+    
+    // Parse additional options from args array
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      
+      // Skip the repository path
+      if (i === repoPathIndex) continue;
+      
+      // Check if it's an option (starts with --)
+      if (arg.startsWith('--') && !knownOptionFlags.includes(arg)) {
+        const optionName = arg.slice(2); // Remove '--'
+        
+        // Check if next argument exists and doesn't start with -- and isn't the repo path
+        if (i + 1 < args.length && !args[i + 1].startsWith('--') && i + 1 !== repoPathIndex) {
+          additionalOptions[optionName] = args[i + 1];
+          i++; // Skip the next argument since we've used it as a value
+        } else {
+          // Option without value (boolean flag)
+          additionalOptions[optionName] = 'true';
+        }
+      }
+    }
+    
+    await rulesGenerate(repoPath, {
+      description: options.description,
+      ruleType: options.ruleType,
+      provider: options.provider,
+      model: options.model,
+      apiKey: options.apiKey,
+      baseURL: options.baseUrl,
+      maxTokens: parseInt(options.maxTokens),
+      temperature: parseFloat(options.temperature),
+      chunkSize: parseInt(options.chunkSize),
+      repomixFile: options.repomixFile,
+      additionalOptions
+    });
+
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('Unknown error occurred');
+    }
+    process.exit(1);
+  }
+};
+</file>
+
+<file path="package.json">
+{
+  "name": "rulefy",
+  "version": "0.1.4",
+  "description": "Transform GitHub repositories into cursor rules instructions using multiple LLM providers (Anthropic, OpenAI, Ollama, etc.)",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "bin": {
+    "rulefy": "./bin/rulefy.cjs"
+  },
+  "type": "module",
+  "files": [
+    "lib/**/*",
+    "bin/**/*",
+    "src/prompts/**/*"
+  ],
+  "scripts": {
+    "build": "rimraf lib && tsc -p tsconfig.json --sourceMap --declaration",
+    "lint": "eslint src --ext .ts",
+    "test": "echo 'No tests yet' && exit 0",
+    "prepublishOnly": "npm run lint && npm run build"
+  },
+  "keywords": [
+    "cursor",
+    "rules",
+    "ai",
+    "github",
+    "repository",
+    "llm",
+    "claude",
+    "openai",
+    "ollama",
+    "local-llm",
+    "cursor-rules"
+  ],
+  "author": "niklub",
+  "homepage": "https://github.com/niklub/rulefy",
+  "bugs": {
+    "url": "https://github.com/niklub/rulefy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niklub/rulefy.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "commander": "^13.1.0",
+    "js-tiktoken": "^1.0.19",
+    "openai": "^4.28.0",
+    "picocolors": "^1.1.0",
+    "repomix": "^0.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^8.27.0",
+    "@typescript-eslint/parser": "^8.27.0",
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "vitest": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
+</file>
+
+<file path="src/rulesGenerate.ts">
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
+import pc from 'picocolors';
+import { generateWithLLM } from './llm-generator-v2.js';
+
+interface RulesGenerateOptions {
+  description?: string;
+  ruleType?: string;
+  provider?: string;
+  model?: string;
+  apiKey?: string;
+  baseURL?: string;
+  maxTokens?: number;
+  temperature?: number;
+  chunkSize?: number;
+  repomixFile?: string;
+  additionalOptions?: Record<string, string>;
+}
+
+export async function rulesGenerate(
+  repoPath: string,
+  options: RulesGenerateOptions
+): Promise<void> {
+  try {
+    // 1. Extract repo name from URL or path
+    const repoName = extractRepoName(repoPath);
+    
+    // 2. Set output directory based on repo name
+    const outputDir = `${repoName}-output`;
+    const outputFile = path.join(outputDir, `${repoName}.rules.mdc`);
+    
+    // Ensure output directory exists
+    await fs.mkdir(outputDir, { recursive: true });
+    
+    // 3. Get repository content
+    let repoText: string;
+    
+    if (options.repomixFile) {
+      // Use provided repomix file
+      console.log(pc.cyan(`1. Using provided repomix file: ${options.repomixFile}`));
+      try {
+        repoText = await readRepomixFile(options.repomixFile);
+        console.log(pc.green('✓ Successfully read repomix file'));
+      } catch (error) {
+        throw new Error(`Failed to read repomix file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Run repomix to get repo representation
+      console.log(pc.cyan('1. Converting repository to text using repomix...'));
+      try {
+        repoText = await runRepomix(repoPath, outputDir, options.additionalOptions);
+      } catch (error) {
+        console.log(pc.yellow(`Warning: Could not get actual repo content. Error: ${error}. Using mock content for testing.`));
+        repoText = generateMockRepoContent(repoName);
+      }
+    }
+    
+    console.log(pc.cyan('2. Reading cursor rules guidelines...'));
+    // 4. Read guidelines file
+    let guidelinesText: string;
+    try {
+      // First try with a path relative to the current module
+      const modulePath = new URL(import.meta.url).pathname;
+      const moduleDir = path.dirname(modulePath);
+      const moduleDirPath = path.resolve(moduleDir, '../src/prompts/cursor_mdc.md');
+      
+      guidelinesText = await fs.readFile(moduleDirPath, 'utf-8');
+      console.log(pc.green('✓ Successfully read guidelines from module path'));
+    } catch (_error) {
+      // If not found in module path, try with a local path
+      try {
+        console.debug(`Error: ${_error}. Trying to read guidelines from local path...`);
+        guidelinesText = await readGuidelines('../src/prompts/cursor_mdc.md');
+        console.log(pc.green('✓ Successfully read guidelines from local path'));
+      } catch (innerError) {
+        console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + innerError + '. Using built-in guidelines.'));
+        guidelinesText = generateMockGuidelines();
+      }
+    }
+    
+    console.log(pc.cyan('3. Generating cursor rules...'));
+    // 5. Generate rules using LLM
+    const generatedRules = await generateWithLLM(
+      repoText, 
+      guidelinesText, 
+      outputDir, 
+      options.description,
+      options.ruleType,
+      {
+        provider: options.provider || 'anthropic',
+        model: options.model,
+        apiKey: options.apiKey,
+        baseURL: options.baseURL,
+        maxTokens: options.maxTokens,
+        temperature: options.temperature,
+        chunkSize: options.chunkSize
+      }
+    );
+    
+    console.log(pc.cyan(`4. Writing rules to ${outputFile}...`));
+    // 6. Write output to file
+    await fs.writeFile(outputFile, generatedRules);
+    
+    console.log(pc.green(`\n✅ Successfully generated cursor rules for ${repoName}!`));
+    console.log(`Output saved to: ${pc.bold(outputFile)}`);
+    console.log(`All generated files are in: ${pc.bold(outputDir)}`);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to generate rules: ${error.message}`);
+    }
+    throw new Error('Failed to generate rules: Unknown error');
+  }
+}
+
+function extractRepoName(repoPath: string): string {
+  // Handle current directory case
+  if (repoPath === '.') {
+    return path.basename(process.cwd());
+  }
+  
+  // For local paths, use the directory name
+  try {
+    // Sync version to avoid Promise handling in this synchronous function
+    if (fsSync.statSync(repoPath).isDirectory()) {
+      return path.basename(repoPath);
+    }
+  } catch (_e) {
+    // Path doesn't exist or can't be accessed, check if it's a remote repo
+    console.log(pc.yellow(`Warning: Could not find a local repo by path: ${repoPath}. Error: ${_e}`));
+  }
+  
+  // Handle format like 'owner/repo'
+  if (/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/.test(repoPath)) {
+    return repoPath.split('/')[1];
+  }
+  
+  // Handle GitHub URLs (only http or https)
+  const githubUrlMatch = repoPath.match(/^https?:\/\/github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/);
+  if (githubUrlMatch) {
+    return githubUrlMatch[2];
+  }
+  
+  // If no match, use a sanitized version of the path as fallback
+  return repoPath.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/^-+|-+$/g, '');
+}
+
+async function runRepomix(repoPath: string, outputDir: string, additionalOptions?: Record<string, string>): Promise<string> {
+  try {
+    
+    // Build repomix command based on whether it's a remote or local repository
+    let command = `npx repomix ${repoPath}`;
+    
+    // Add any additional options to the command
+    if (additionalOptions) {
+      for (const [key, value] of Object.entries(additionalOptions)) {
+        if (value === 'true') {
+          command += ` --${key}`;
+        } else {
+          command += ` --${key} "${value}"`;
+        }
+      }
+    }
+    
+    // Add output directory to command
+    const outputFilePath = path.join(outputDir, 'repomix-output');
+    command += ` --output "${outputFilePath}"`;
+    
+    // Display the command being executed
+    console.log(pc.cyan(`Executing: ${command}`));
+    
+    // Run repomix command
+    execSync(command, { 
+      encoding: 'utf-8',
+      stdio: 'inherit' // Show all output directly in the console
+    });
+    
+    // Read the content of the generated file
+    console.log(pc.green(`Reading repomix output from: ${outputFilePath}`));
+    
+    const content = await fs.readFile(outputFilePath, 'utf-8');
+    return content;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Error running repomix: ${error.message}`);
+    }
+    throw new Error('Unknown error occurred while running repomix');
+  }
+}
+
+async function readRepomixFile(filePath: string): Promise<string> {
+  try {
+    // Resolve the file path (handle both absolute and relative paths)
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+    
+    // Check if file exists
+    await fs.access(absolutePath);
+    
+    // Read the file
+    const content = await fs.readFile(absolutePath, 'utf-8');
+    
+    // Basic validation - check if it looks like a repomix file
+    if (content.length === 0) {
+      throw new Error('Repomix file is empty');
+    }
+    
+    // Check for common repomix patterns
+    const hasRepomixPatterns = content.includes('# Project:') || 
+                              content.includes('## Directory Structure') ||
+                              content.includes('## Key Files') ||
+                              content.includes('## Technologies Used');
+    
+    if (!hasRepomixPatterns) {
+      console.log(pc.yellow('Warning: File may not be a valid repomix output. Proceeding anyway...'));
+    }
+    
+    return content;
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('ENOENT')) {
+        throw new Error(`Repomix file not found: ${filePath}`);
+      }
+      throw new Error(`Failed to read repomix file: ${error.message}`);
+    }
+    throw new Error(`Unknown error reading repomix file: ${filePath}`);
+  }
+}
+
+async function readGuidelines(guidelinesPath: string): Promise<string> {
+  try {
+    const absolutePath = path.resolve(process.cwd(), guidelinesPath);
+    return await fs.readFile(absolutePath, 'utf-8');
+  } catch (_error) {
+    throw new Error(`Failed to read guidelines file at ${guidelinesPath}. Error: ${_error}. Make sure the file exists.`);
+  }
+}
+
+function generateMockRepoContent(repoName: string): string {
+  return `# Project: ${repoName}
+
+## Directory Structure
+- src/
+  - index.ts
+  - core/
+    - processor.ts
+    - utils.ts
+  - lib/
+    - api.ts
+    - helpers.ts
+- tests/
+  - core.test.ts
+  - api.test.ts
+- package.json
+- tsconfig.json
+- README.md
+
+## Key Files
+### src/index.ts
+This is the main entry point of the application.
+
+### src/core/processor.ts
+Contains the core processing logic.
+
+### src/lib/api.ts
+Contains API integration code.
+
+## Technologies Used
+- TypeScript
+- Node.js
+- Jest for testing
+`;
+}
+
+function generateMockGuidelines(): string {
+  return `**Guidelines for Creating Content for** .cursorrules
+
+.cursorrules files serve as customized instruction sets for Cursor AI, tailoring its code generation behavior to specific project requirements. These files should be placed in the repository root to provide project-wide context and guidelines.
+
+**1. Use Markdown for Documentation**
+* All documentation within .cursorrules files or accompanying READMEs must be written in Markdown to ensure consistency and readability.
+
+**2. Maintain a Clear Structure**
+* Organize content logically with clear sections (e.g., general guidelines, project-specific rules, file structure) to provide context and instructions effectively.
+
+**3. Focus on Best Practices and Standards**
+* Define coding standards, best practices, and style guidelines specific to the technology or framework to ensure consistent, high-quality output.
+
+**4. Include Project-Specific Context**
+* Include details about the project's structure, architectural decisions, and commonly used libraries or methods to guide AI behavior.
+`;
+}
+</file>
+
+<file path="src/llmGenerator.ts">
+import Anthropic from '@anthropic-ai/sdk';
+import { getEncoding } from 'js-tiktoken';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import pc from 'picocolors';
+import readline from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
+
+// Environment variables for chunk configuration, with defaults
+const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || '100000');
+const costPerToken = 3e-6; // 3$ per million tokens
+
+export async function generateWithLLM(
+  repoContent: string,
+  guidelines: string,
+  outputDir: string = '.',
+  description?: string,
+  ruleType?: string,
+  provider: string = 'claude-3-7-sonnet-latest',
+  chunkSize: number = CHUNK_SIZE,
+): Promise<string> {
+  // If this is a test run with dummy API key, just return a mock response
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (apiKey === 'dummy-key') {
+    console.log('Using mock response for testing');
+    return generateMockResponse(repoContent);
+  }
+  
+  return await generateWithClaude(repoContent, guidelines, outputDir, description, ruleType, provider, chunkSize);
+}
+
+/**
+ * Creates a visual progress bar
+ */
+function progressBar(current: number, total: number, length = 30): string {
+  const percentage = current / total;
+  const filledLength = Math.round(length * percentage);
+  const emptyLength = length - filledLength;
+  
+  const filled = '█'.repeat(filledLength);
+  const empty = '░'.repeat(emptyLength);
+  const percentageText = Math.round(percentage * 100).toString().padStart(3);
+  
+  return `${filled}${empty} ${percentageText}%`;
+}
+
+function formatTokenCount(count: number): string {
+  const formatted = count.toLocaleString();
+  if (count < 50000) return pc.green(formatted);
+  if (count < 100000) return pc.yellow(formatted);
+  return pc.red(formatted);
+}
+
+/**
+ * Calculate the number of chunks needed for processing
+ */
+function calculateChunkCount(totalTokens: number, chunkSize: number): number {
+  if (totalTokens <= chunkSize) return 1;
+  
+  return Math.ceil(totalTokens / chunkSize);
+}
+
+/**
+ * Iterator that yields one chunk at a time to save memory
+ */
+async function* chunkIterator(text: string, chunkSize?: number): AsyncGenerator<{
+  chunk: string;
+  index: number;
+  tokenCount: number;
+  totalChunks: number;
+}, void, unknown> {
+  console.log(pc.cyan('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.cyan('│           CONTENT CHUNKING               │'));
+  console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
+  
+  // Get tokenizer for the model
+  const encoding = getEncoding('cl100k_base');
+  
+  const tokens = encoding.encode(text);
+  const totalTokens = tokens.length;
+  const cSize = chunkSize || CHUNK_SIZE;
+  
+  console.log(`● Document size: ${formatTokenCount(totalTokens)} tokens`);
+  console.log(`● Chunk size: ${formatTokenCount(cSize)} tokens`);
+  
+  // Calculate and display the estimated cost
+  const estimatedCost = (totalTokens * costPerToken).toFixed(4);
+  console.log(pc.yellow(`● Estimated input processing cost: $${estimatedCost} (${formatTokenCount(totalTokens)} tokens × $${costPerToken} per token)`));
+  
+  // Create a user dialog to confirm proceeding
+  const rl = readline.createInterface({ input, output });
+  
+  try {
+    const answer = await rl.question(pc.yellow('\nProceed with processing? (y/n): '));
+    const proceed = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+    
+    if (!proceed) {
+      console.log(pc.red('\nOperation cancelled by user.'));
+      process.exit(0);
+    }
+  } finally {
+    rl.close();
+  }
+  
+  // Calculate the total number of chunks for progress reporting
+  const totalChunks = calculateChunkCount(totalTokens, chunkSize || CHUNK_SIZE);
+  console.log(pc.green(`✓ Will process ${totalChunks} chunks\n`));
+  
+  // Yield chunks one at a time
+  let i = 0;
+  let chunkIndex = 0;
+  
+  while (i < tokens.length) {
+    // Get the current chunk of tokens
+    const chunkTokens = tokens.slice(i, Math.min(i + cSize, tokens.length));
+    const chunk = encoding.decode(chunkTokens);
+    
+    // Yield the current chunk along with its metadata
+    yield {
+      chunk,
+      index: chunkIndex,
+      tokenCount: chunkTokens.length,
+      totalChunks
+    };
+    
+    // Move forward to the next chunk (no overlap)
+    i += cSize;
+    chunkIndex++;
+  }
+  
+  process.stdout.write('\n\n');
+}
+
+async function generateWithClaude(repoContent: string, guidelines: string, outputDir: string = '.', description?: string, ruleType?: string, provider: string = 'claude-3-7-sonnet-latest', chunkSize?: number): Promise<string> {
+  // Check for API key in environment
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY environment variable is not set. Please set it to use Claude.');
+  }
+  
+  const client = new Anthropic({
+    apiKey,
+  });
+
+  // Process text chunk by chunk using the iterator
+  let currentSummary = ''; // This will store our progressively built summary
+  
+  // Helper function to extract content between <cursorrules> tags
+  function extractCursorrules(text: string): string {
+    const regex = /<cursorrules>([\s\S]*?)<\/cursorrules>/;
+    const match = text.match(regex);
+    if (!match) {
+      throw new Error('Response does not contain <cursorrules> tags. Make sure the model includes the required tags in its response.');
+    }
+    return match[1].trim();
+  }
+  
+  // Create a chunk iterator to process one chunk at a time
+  const chunkGen = chunkIterator(repoContent, chunkSize);
+  
+  for await (const { chunk, index, tokenCount, totalChunks } of chunkGen) {
+    const chunkDisplay = `[${index+1}/${totalChunks}]`;
+    console.log(`${pc.yellow('⟳')} Processing chunk ${pc.yellow(chunkDisplay)} ${progressBar(index+1, totalChunks)}`);
+    
+    // Display chunk information 
+    console.log(pc.cyan(`┌${'─'.repeat(58)}┐`));
+    console.log(pc.cyan(`│ Chunk: ${String(index+1).padEnd(10)} Token Count: ${formatTokenCount(tokenCount).padEnd(12)} │`));
+    console.log(pc.cyan(`└${'─'.repeat(58)}┘\n`));
+    
+    const isFirstChunk = index === 0;
+    
+    const systemPrompt = 'You are an expert AI system designed to analyze code repositories and generate Cursor AI rules. Your task is to create a .cursorrules file based on the provided repository content and guidelines.';
+    
+    let userPrompt;
+    
+    if (isFirstChunk) {
+      // For the first chunk, start creating the rules
+      userPrompt = `I need your help to create a Cursor rule (.cursorrules) file for my project. Please follow this process:
+
+1. First, carefully read and understand this codebase chunk:
+
+<repository_chunk>
+${chunk}
+</repository_chunk>
+
+2. Now, review these guidelines for creating effective Cursor rules:
+
+<guidelines>
+${guidelines}
+</guidelines>
+
+${description ? `3. I specifically want to create rules for: "${description}"` : ''}
+${ruleType ? `4. The rule type should be: "${ruleType}"` : ''}
+
+${description || ruleType ? '5' : '3'}. Analyze the repository content and structure, considering:
+   - Main technologies, frameworks, and languages used
+   - Coding patterns, naming conventions, and architectural decisions
+   - Overall codebase structure including key directories and file types
+   - Project-specific practices and testing guidelines
+   - Guidelines and standards documented in comments or markdown files by developers
+
+Present your analysis inside <repository_analysis> tags.
+
+${description || ruleType ? '6' : '4'}. Create a complete .cursorrules file that:
+   - Is specific to this repository's structure and technologies
+   - Includes best practices and guidelines from code, comments, and documentation
+   - Organizes rules to match the codebase structure
+   - Is concise and actionable
+   - Includes testing best practices and guidelines
+   - Uses valid Markdown format${ruleType ? `
+   - Follows the rule type: "${ruleType}"` : ''}${description ? `
+   - Addresses the specific request: "${description}"` : ''}
+
+Include your final .cursorrules content inside <cursorrules> tags.
+Be concise - the final cursorrules file text must be not more than one page long.
+
+Example structure:
+
+<cursorrules>
+...markdown content of the .cursorrules file, following the guidelines and analysis...
+</cursorrules>`;
+    } else {
+      // For subsequent chunks, enhance the existing summary
+      userPrompt = `I need your help to update a Cursor rule (.cursorrules) file based on a new chunk of my project:
+
+1. Here is the current .cursorrules file content:
+
+<current_rules>
+${currentSummary}
+</current_rules>
+
+2. Now, carefully review this new repository chunk:
+
+<repository_chunk>
+${chunk}
+</repository_chunk>
+
+3. Review these guidelines for creating effective Cursor rules:
+
+<guidelines>
+${guidelines}
+</guidelines>
+
+${description ? `4. Remember, I specifically want to create rules for: "${description}"` : ''}
+${ruleType ? `${description ? '5' : '4'}. The rule type should be: "${ruleType}"` : ''}
+
+${description || ruleType ? (description && ruleType ? '6' : '5') : '4'}. Analyze this new chunk for:
+   - New technologies, frameworks, or languages not previously covered
+   - Additional coding patterns, naming conventions, or architectural decisions
+   - Further insights into codebase structure
+   - Project-specific practices and testing guidelines
+   - Guidelines and standards documented in comments or markdown files by developers
+
+Present your analysis inside <new_insights> tags.
+
+${description || ruleType ? (description && ruleType ? '7' : '6') : '5'}. Update the existing rules by:
+   - Preserving all valuable information from existing rules
+   - Maintaining the same structure and organization
+   - Adding new information only for patterns not already covered
+   - Being specific about code structure and patterns
+   - Including testing-related insights and best practices
+   - Being concise but comprehensive${ruleType ? `
+   - Following the rule type: "${ruleType}"` : ''}${description ? `
+   - Addressing the specific request: "${description}"` : ''}
+
+Include your final updated .cursorrules content inside <cursorrules> tags.
+Be concise - the final cursorrules file text must be not more than one page long.`;
+    }
+
+    process.stdout.write(`${pc.blue('🔄')} Sending to Claude ${provider}... `);
+    
+    try {
+      const startTime = Date.now();
+      const response = await client.messages.create({
+        model: provider,
+        max_tokens: 8000,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt
+          }
+        ]
+      });
+      currentSummary = response.content[0].text;
+      const endTime = Date.now();
+      const processingTime = ((endTime - startTime) / 1000).toFixed(2);
+      
+      process.stdout.write(pc.green('✓\n'));
+      
+      // Save intermediate output to file in the specified directory
+      const intermediateFileName = path.join(outputDir, `cursorrules_chunk_${index+1}_of_${totalChunks}.md`);
+      await fs.writeFile(intermediateFileName, currentSummary);
+      console.log(`${pc.green('✓')} Saved intermediate output to ${pc.blue(intermediateFileName)} ${pc.gray(`(${processingTime}s)`)}\n`);
+    } catch (error) {
+      process.stdout.write(pc.red('✗\n'));
+      if (error instanceof Error) {
+        throw new Error(`${pc.red('Error generating with Claude on chunk')} ${index+1}: ${error.message}`);
+      }
+      throw new Error(`${pc.red('Unknown error occurred while generating with Claude on chunk')} ${index+1}`);
+    }
+  }
+  
+  console.log(pc.green('\n┌─────────────────────────────────────────┐'));
+  console.log(pc.green('│          PROCESSING COMPLETE            │'));
+  console.log(pc.green('└─────────────────────────────────────────┘\n'));
+  
+  // Only extract the cursorrules content at the very end
+  return extractCursorrules(currentSummary);
+}
+
+function generateMockResponse(repoContent: string): string {
+  // Extract some information from the repo content for the mock response
+  const repoLines = repoContent.split('\n');
+  const repoName = repoLines.find(line => line.includes('# Project:'))?.replace('# Project:', '').trim() || 'Repository';
+  
+  return `# .cursorrules for ${repoName}
+
+## Project Overview
+
+This project appears to be a TypeScript/Node.js application that processes GitHub repositories.
+
+## Coding Standards
+
+- Follow TypeScript best practices with strict typing
+- Use async/await for asynchronous operations
+- Prefer functional programming patterns where appropriate
+- Use descriptive variable and function names
+
+## File Structure Guidelines
+
+- Place core logic in the \`src/\` directory
+- Organize code by feature or functionality
+- Keep related functionality together
+- Use index.ts files for clean exports
+
+## Style Conventions
+
+- Use camelCase for variables and functions
+- Use PascalCase for classes and interfaces
+- Use 2-space indentation
+- End files with a newline
+
+## Testing Standards
+
+- Write unit tests for all functionality
+- Use descriptive test names
+- Follow AAA (Arrange-Act-Assert) pattern
+- Mock external dependencies
+
+## Error Handling
+
+- Use try/catch blocks for error handling
+- Provide descriptive error messages
+- Handle edge cases appropriately
+- Log errors with appropriate severity levels
+
+## Comments and Documentation
+
+- Document public APIs
+- Add comments for complex logic
+- Use JSDoc for function documentation
+- Keep comments up-to-date with code changes
+
+## Performance Considerations
+
+- Optimize for speed and efficiency
+- Use appropriate data structures
+- Minimize unnecessary computations
+- Consider memory usage for large operations
+
+## Security Best Practices
+
+- Validate all inputs
+- Avoid hardcoded credentials
+- Use proper error handling
+- Follow secure coding practices`;
+}
+</file>
+
+</files>

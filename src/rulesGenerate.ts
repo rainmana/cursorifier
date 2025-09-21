@@ -3,13 +3,19 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import pc from 'picocolors';
-import { generateWithLLM } from './llmGenerator.js';
+import { generateWithLLM } from './llm-generator-v2.js';
 
 interface RulesGenerateOptions {
   description?: string;
   ruleType?: string;
   provider?: string;
+  model?: string;
+  apiKey?: string;
+  baseURL?: string;
+  maxTokens?: number;
+  temperature?: number;
   chunkSize?: number;
+  repomixFile?: string;
   additionalOptions?: Record<string, string>;
 }
 
@@ -28,14 +34,27 @@ export async function rulesGenerate(
     // Ensure output directory exists
     await fs.mkdir(outputDir, { recursive: true });
     
-    console.log(pc.cyan('1. Converting repository to text using repomix...'));
-    // 3. Run repomix to get repo representation
+    // 3. Get repository content
     let repoText: string;
-    try {
-      repoText = await runRepomix(repoPath, outputDir, options.additionalOptions);
-    } catch (error) {
-      console.log(pc.yellow(`Warning: Could not get actual repo content. Error: ${error}. Using mock content for testing.`));
-      repoText = generateMockRepoContent(repoName);
+    
+    if (options.repomixFile) {
+      // Use provided repomix file
+      console.log(pc.cyan(`1. Using provided repomix file: ${options.repomixFile}`));
+      try {
+        repoText = await readRepomixFile(options.repomixFile);
+        console.log(pc.green('✓ Successfully read repomix file'));
+      } catch (error) {
+        throw new Error(`Failed to read repomix file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Run repomix to get repo representation
+      console.log(pc.cyan('1. Converting repository to text using repomix...'));
+      try {
+        repoText = await runRepomix(repoPath, outputDir, options.additionalOptions);
+      } catch (error) {
+        console.log(pc.yellow(`Warning: Could not get actual repo content. Error: ${error}. Using mock content for testing.`));
+        repoText = generateMockRepoContent(repoName);
+      }
     }
     
     console.log(pc.cyan('2. Reading cursor rules guidelines...'));
@@ -69,8 +88,15 @@ export async function rulesGenerate(
       outputDir, 
       options.description,
       options.ruleType,
-      options.provider,
-      options.chunkSize
+      {
+        provider: options.provider || 'anthropic',
+        model: options.model,
+        apiKey: options.apiKey,
+        baseURL: options.baseURL,
+        maxTokens: options.maxTokens,
+        temperature: options.temperature,
+        chunkSize: options.chunkSize
+      }
     );
     
     console.log(pc.cyan(`4. Writing rules to ${outputFile}...`));
@@ -160,6 +186,44 @@ async function runRepomix(repoPath: string, outputDir: string, additionalOptions
       throw new Error(`Error running repomix: ${error.message}`);
     }
     throw new Error('Unknown error occurred while running repomix');
+  }
+}
+
+async function readRepomixFile(filePath: string): Promise<string> {
+  try {
+    // Resolve the file path (handle both absolute and relative paths)
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+    
+    // Check if file exists
+    await fs.access(absolutePath);
+    
+    // Read the file
+    const content = await fs.readFile(absolutePath, 'utf-8');
+    
+    // Basic validation - check if it looks like a repomix file
+    if (content.length === 0) {
+      throw new Error('Repomix file is empty');
+    }
+    
+    // Check for common repomix patterns
+    const hasRepomixPatterns = content.includes('# Project:') || 
+                              content.includes('## Directory Structure') ||
+                              content.includes('## Key Files') ||
+                              content.includes('## Technologies Used');
+    
+    if (!hasRepomixPatterns) {
+      console.log(pc.yellow('Warning: File may not be a valid repomix output. Proceeding anyway...'));
+    }
+    
+    return content;
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('ENOENT')) {
+        throw new Error(`Repomix file not found: ${filePath}`);
+      }
+      throw new Error(`Failed to read repomix file: ${error.message}`);
+    }
+    throw new Error(`Unknown error reading repomix file: ${filePath}`);
   }
 }
 

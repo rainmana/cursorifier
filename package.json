@@ -1,11 +1,11 @@
 {
-  "name": "rulefy",
+  "name": "cursorify",
   "version": "0.1.4",
-  "description": "Transform GitHub repositories into cursor rules instructions in markdown",
+  "description": "Transform GitHub repositories into cursor rules instructions using multiple LLM providers (Anthropic, OpenAI, Ollama, etc.)",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "bin": {
-    "rulefy": "./bin/rulefy.cjs"
+    "cursorify": "./bin/cursorify.cjs"
   },
   "type": "module",
   "files": [
@@ -27,29 +27,34 @@
     "repository",
     "llm",
     "claude",
-    "cursor-rules"
+    "openai",
+    "ollama",
+    "local-llm",
+    "cursor-rules",
+    "cursorify"
   ],
   "author": "niklub",
-  "homepage": "https://github.com/niklub/rulefy",
+  "homepage": "https://github.com/niklub/cursorify",
   "bugs": {
-    "url": "https://github.com/niklub/rulefy/issues"
+    "url": "https://github.com/niklub/cursorify/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/niklub/rulefy.git"
+    "url": "git+https://github.com/niklub/cursorify.git"
   },
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
     "commander": "^13.1.0",
     "js-tiktoken": "^1.0.19",
+    "openai": "^4.28.0",
     "picocolors": "^1.1.0",
     "repomix": "^0.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^8.27.0",
-    "@typescript-eslint/parser": "^7.14.0",
+    "@typescript-eslint/parser": "^8.27.0",
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.3.3",

@@ -9,7 +9,7 @@ const EXIT_CODES = {
 };
 
 if (major < 18) {
-  console.error(`Rulefy requires Node.js version 18 or higher. Current version: ${nodeVersion}\n`);
+  console.error(`Cursorify requires Node.js version 18 or higher. Current version: ${nodeVersion}\n`);
   process.exit(EXIT_CODES.ERROR);
 }
 
