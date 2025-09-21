@@ -28,10 +28,11 @@
 - 🚀 Analyze GitHub repositories or local codebases with a single command
 - 🧩 Intelligently extract project structure, conventions, and patterns
 - 📚 Handles large codebases that exceed the token limit for LLMs
-- 🤖 Generate tailored Cursor rules using multiple LLM providers
+- 🤖 Generate tailored rules for both **Cursor AI** and **Cline** using multiple LLM providers
 - 🔌 **Multi-Provider Support**: Anthropic Claude, OpenAI, Ollama, LM Studio, and more
 - 🏠 **Local AI Support**: Use your own models with Ollama or LM Studio
-- 📝 Create production-ready .rules.mdc files for immediate use
+- 📝 Create production-ready `.rules.mdc` files for Cursor AI
+- 📋 Create `.clinerules` files for Cline AI assistant
 - 🔧 Customize analysis with flexible configuration options
 
 ## 🚀 Installation
@@ -80,6 +81,36 @@ cursorifier . --provider local --base-url http://localhost:11434 --model llama2
 # Use existing repomix output
 cursorifier --repomix-file ./my-repo-analysis.xml
 ```
+
+## 🎯 Output Formats
+
+Cursorifier supports two AI assistant formats:
+
+### **Cursor AI Rules** (Default)
+```bash
+# Generate Cursor AI rules
+cursorifier https://github.com/facebook/react
+# Output: react-output/react.rules.mdc
+```
+
+**Features:**
+- `.rules.mdc` file format with FrontMatter
+- AI behavior instructions and patterns
+- Glob patterns for file targeting
+- Always/Manual/Auto rule types
+
+### **Cline Rules**
+```bash
+# Generate Cline rules
+cursorifier https://github.com/facebook/react --output-format cline
+# Output: react-output/.clinerules
+```
+
+**Features:**
+- `.clinerules` file format
+- Project guidelines and coding standards
+- Team consistency and best practices
+- Focus on development workflow
 
 ## ✨ What Makes Cursorifier Special?
 
@@ -177,6 +208,15 @@ cursorifier --description "guidelines for extending the component using the base
 # Specify Cursor AI rule type
 cursorifier --rule-type "agent" --description "coding standards for React components"
 
+# Generate Cline rules (for Cline AI assistant)
+cursorifier --output-format cline
+
+# Generate Cline rules with specific description
+cursorifier --output-format cline --description "React project guidelines and coding standards"
+
+# Generate Cline rules using local model
+cursorifier --output-format cline --provider local --model llama3.1 --base-url http://localhost:11434/v1
+
 # List available providers and models
 cursorifier --list-providers
 
@@ -204,6 +244,7 @@ Options:
   --temperature <temp>     Temperature for generation (0-2, default: 0.7)
   --description <text>     Description of what should be rulefied
   --rule-type <type>       Type of rule to generate (auto, manual, agent, always)
+  --output-format <format> Output format for rules (cursor, cline) (default: cursor)
   --chunk-size <size>      Chunk size for processing (default: 100000)
   --repomix-file <path>    Path to existing repomix output file (skips repomix execution)
   --list-providers         List available providers and their models

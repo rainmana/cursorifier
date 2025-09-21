@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - ⚙️ **Enhanced Configuration**: Added `--model`, `--api-key`, `--base-url`, `--max-tokens`, `--temperature` options
 - 🎯 **Better Error Handling**: Improved error messages and validation
 - 📋 **Provider Listing**: Added `--list-providers` option to show available providers and models
+- 🤖 **Cline Rules Support**: Added `--output-format cline` option to generate `.clinerules` files for Cline AI assistant
+- 📝 **Dual Format Support**: Generate both Cursor AI (`.rules.mdc`) and Cline (`.clinerules`) formats
 
 ### Changed
 - 🏷️ **Project Renamed**: Renamed from `rulefy` to `cursorifier` to avoid conflicts
