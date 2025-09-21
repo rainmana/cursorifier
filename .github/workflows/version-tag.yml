@@ -55,39 +55,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Release
+      - name: Summary
         if: steps.tag-check.outputs.EXISTS == 'false'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.version.outputs.VERSION }}
-          release_name: Release v${{ steps.version.outputs.VERSION }}
-          body: |
-            ## What's New in v${{ steps.version.outputs.VERSION }}
-            
-            This release includes:
-            - Roo Custom Modes support as third output format
-            - Enhanced multi-format support (Cursor, Cline, Roo)
-            - Fixed repomix output to single file
-            - Improved error handling and rate limiting
-            - Updated documentation and examples
-            
-            ## Installation
-            ```bash
-            npm install -g cursorifier
-            ```
-            
-            ## Usage
-            ```bash
-            # Cursor AI Rules
-            cursorifier . --output-format cursor
-            
-            # Cline Rules  
-            cursorifier . --output-format cline
-            
-            # Roo Custom Modes
-            cursorifier . --output-format roo
-            ```
-          draft: false
-          prerelease: false
+        run: |
+          echo "✅ Version v${{ steps.version.outputs.VERSION }} tagged successfully!"
+          echo "📦 Ready for npm publishing: npm publish"
+          echo "🔗 View on npm: https://www.npmjs.com/package/cursorifier"
