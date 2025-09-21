@@ -13,9 +13,9 @@
 
 </div>
 
-**Supercharge your Cursor AI with codebase-specific intelligence.** Cursorify transforms your GitHub repositories into custom rules that teach Cursor AI how your project works, resulting in more accurate code suggestions, better refactoring, and contextually aware assistance. Now supports multiple LLM providers including Anthropic Claude, OpenAI, and local models like Ollama.
+**Supercharge your Cursor AI with codebase-specific intelligence.** Cursorifier transforms your GitHub repositories into custom rules that teach Cursor AI how your project works, resulting in more accurate code suggestions, better refactoring, and contextually aware assistance. Now supports multiple LLM providers including Anthropic Claude, OpenAI, and local models like Ollama.
 
-## Why Cursorify?
+## Why Cursorifier?
 
 - ✅ **Instant Expertise**: Your AI assistant immediately understands your project conventions and architecture
 - ✅ **Better Suggestions**: Get code completions that match your project's style and patterns
@@ -346,7 +346,7 @@ If you encounter rate limits or ihigh costs, try to minimize the context length 
 
 ## Fork Information
 
-**Cursorify** is a fork of the original [rulefy](https://github.com/niklub/rulefy) project by [niklub](https://github.com/niklub), enhanced with additional features:
+**Cursorifier** is a fork of the original [rulefy](https://github.com/niklub/rulefy) project by [niklub](https://github.com/niklub), enhanced with additional features:
 
 ### New Features Added
 - 🔌 **Multi-Provider LLM Support**: Anthropic Claude, OpenAI, and local models (Ollama, LM Studio)
