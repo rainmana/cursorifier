@@ -23,6 +23,7 @@ export const run = async (): Promise<void> => {
       .option('--rule-type <type>', 'Type of rule to generate (auto, manual, agent, always)')
       .option('--output-format <format>', 'Output format for rules (cursor, cline)', 'cursor')
       .option('--chunk-size <size>', 'Chunk size for the repository to be processed in one go (default: 100000)', '100000')
+      .option('--chunk-delay <ms>', 'Delay between chunks in milliseconds to avoid rate limits (default: 5000)', '5000')
       .option('--repomix-file <path>', 'Path to existing repomix output file (skips repomix execution)')
       .option('--list-providers', 'List available providers and their models')
       .allowUnknownOption(true);
@@ -115,17 +116,22 @@ export const run = async (): Promise<void> => {
       }
     }
     
+    // Get API key from CLI option or environment variable
+    const apiKeyEnvVar = registry.getApiKeyEnvVar(options.provider as any);
+    const apiKey = options.apiKey || process.env[apiKeyEnvVar];
+    
     await rulesGenerate(repoPath, {
       description: options.description,
       ruleType: options.ruleType,
       outputFormat: options.outputFormat,
       provider: options.provider,
       model: options.model,
-      apiKey: options.apiKey,
+      apiKey: apiKey,
       baseURL: options.baseUrl,
       maxTokens: parseInt(options.maxTokens),
       temperature: parseFloat(options.temperature),
       chunkSize: parseInt(options.chunkSize),
+      chunkDelay: parseInt(options.chunkDelay),
       repomixFile: options.repomixFile,
       additionalOptions
     });

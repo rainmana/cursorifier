@@ -11,6 +11,19 @@ import { LLMProviderConfig, LLMMessage } from './types/llm-provider.js';
 const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || '100000');
 const costPerToken = 3e-6; // 3$ per million tokens
 
+/**
+ * Sanitize text to remove problematic tokens that can cause issues
+ */
+function sanitizeText(text: string): string {
+  return text
+    .replace(/<\|endoftext\|>/g, '') // Remove endoftext tokens
+    .replace(/<\|end\|>/g, '') // Remove end tokens
+    .replace(/<\|start\|>/g, '') // Remove start tokens
+    .replace(/\x00/g, '') // Remove null bytes
+    .replace(/\uFFFD/g, '') // Remove replacement characters
+    .trim();
+}
+
 export interface LLMGeneratorOptions {
   provider: string;
   model?: string;
@@ -19,6 +32,7 @@ export interface LLMGeneratorOptions {
   maxTokens?: number;
   temperature?: number;
   chunkSize?: number;
+  chunkDelay?: number;
 }
 
 export async function generateWithLLM(
@@ -83,10 +97,13 @@ async function* chunkIterator(text: string, chunkSize?: number): AsyncGenerator<
   console.log(pc.cyan('│           CONTENT CHUNKING               │'));
   console.log(pc.cyan('└─────────────────────────────────────────┘\n'));
   
+  // Sanitize text to remove problematic tokens
+  const sanitizedText = sanitizeText(text);
+  
   // Get tokenizer for the model
   const encoding = getEncoding('cl100k_base');
   
-  const tokens = encoding.encode(text);
+  const tokens = encoding.encode(sanitizedText);
   const totalTokens = tokens.length;
   const cSize = chunkSize || CHUNK_SIZE;
   
@@ -314,6 +331,13 @@ Be concise - the final cursorrules file text must be not more than one page long
       const intermediateFileName = path.join(outputDir, `cursorrules_chunk_${index+1}_of_${totalChunks}.md`);
       await fs.writeFile(intermediateFileName, currentSummary);
       console.log(`${pc.green('✓')} Saved intermediate output to ${pc.blue(intermediateFileName)} ${pc.gray(`(${processingTime}s)`)}\n`);
+      
+      // Add delay between chunks to help with rate limiting (except for last chunk)
+      if (index < totalChunks - 1) {
+        const delay = options.chunkDelay || 5000; // Use provided delay or default 5 seconds
+        console.log(`${pc.yellow('⏳')} Waiting ${delay}ms before next chunk...\n`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     } catch (error) {
       process.stdout.write(pc.red('✗\n'));
       if (error instanceof Error) {

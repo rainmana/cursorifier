@@ -16,6 +16,7 @@ interface RulesGenerateOptions {
   maxTokens?: number;
   temperature?: number;
   chunkSize?: number;
+  chunkDelay?: number;
   repomixFile?: string;
   additionalOptions?: Record<string, string>;
 }
@@ -83,7 +84,8 @@ export async function rulesGenerate(
       // If not found in module path, try with a local path
       try {
         console.debug(`Error: ${_error}. Trying to read guidelines from local path...`);
-        guidelinesText = await readGuidelines(`../src/prompts/${guidelinesFile}`);
+        const localPath = path.join(process.cwd(), 'src', 'prompts', guidelinesFile);
+        guidelinesText = await readGuidelines(localPath);
         console.log(pc.green('✓ Successfully read guidelines from local path'));
       } catch (innerError) {
         console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + innerError + '. Using built-in guidelines.'));
@@ -107,7 +109,8 @@ export async function rulesGenerate(
         baseURL: options.baseURL,
         maxTokens: options.maxTokens,
         temperature: options.temperature,
-        chunkSize: options.chunkSize
+        chunkSize: options.chunkSize,
+        chunkDelay: options.chunkDelay
       }
     );
     

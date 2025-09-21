@@ -42,47 +42,68 @@ export class AnthropicProvider extends BaseLLMProvider {
     messages: LLMMessage[],
     config: LLMProviderConfig
   ): Promise<LLMResponse> {
-    try {
-      this.validateConfig(config);
-      
-      const client = this.initializeClient(config.apiKey!);
-      
-      // Convert messages to Anthropic format
-      const systemMessage = messages.find(msg => msg.role === 'system');
-      const userMessages = messages.filter(msg => msg.role === 'user' || msg.role === 'assistant');
-      
-      // Anthropic expects the last message to be from user
-      const lastMessage = userMessages[userMessages.length - 1];
-      const conversationMessages = userMessages.slice(0, -1).map(msg => ({
-        role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
-        content: msg.content
-      }));
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        this.validateConfig(config);
+        
+        const client = this.initializeClient(config.apiKey!);
+        
+        // Convert messages to Anthropic format
+        const systemMessage = messages.find(msg => msg.role === 'system');
+        const userMessages = messages.filter(msg => msg.role === 'user' || msg.role === 'assistant');
+        
+        // Anthropic expects the last message to be from user
+        const lastMessage = userMessages[userMessages.length - 1];
+        const conversationMessages = userMessages.slice(0, -1).map(msg => ({
+          role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
+          content: msg.content
+        }));
 
-      const response = await client.messages.create({
-        model: config.model,
-        max_tokens: config.maxTokens || 8000,
-        system: systemMessage?.content,
-        messages: [
-          ...conversationMessages,
-          {
-            role: 'user',
-            content: lastMessage.content
+        const response = await client.messages.create({
+          model: config.model,
+          max_tokens: config.maxTokens || 8000,
+          system: systemMessage?.content,
+          messages: [
+            ...conversationMessages,
+            {
+              role: 'user',
+              content: lastMessage.content
+            }
+          ]
+        });
+
+        const content = this.extractContent(response);
+        const usage = this.extractUsage(response);
+
+        return {
+          content,
+          usage,
+          model: config.model,
+          provider: this.name
+        };
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a rate limit error
+        if (error.status === 429 || (error.message && error.message.includes('rate limit'))) {
+          if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt) * 2000; // Exponential backoff: 2s, 4s, 8s
+            console.log(`⏳ Rate limited. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
           }
-        ]
-      });
-
-      const content = this.extractContent(response);
-      const usage = this.extractUsage(response);
-
-      return {
-        content,
-        usage,
-        model: config.model,
-        provider: this.name
-      };
-    } catch (error) {
-      this.handleApiError(error, 'Anthropic API error');
+        }
+        
+        // For non-rate-limit errors or final attempt, throw immediately
+        this.handleApiError(error, 'Anthropic API error');
+      }
     }
+    
+    // If we get here, all retries failed
+    throw lastError || new Error('All retry attempts failed');
   }
 
   /**

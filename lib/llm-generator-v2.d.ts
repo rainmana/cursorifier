@@ -6,5 +6,6 @@ export interface LLMGeneratorOptions {
     maxTokens?: number;
     temperature?: number;
     chunkSize?: number;
+    chunkDelay?: number;
 }
 export declare function generateWithLLM(repoContent: string, guidelines: string, outputDir?: string, description?: string, ruleType?: string, outputFormat?: string, options?: LLMGeneratorOptions): Promise<string>;

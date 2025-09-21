@@ -9,6 +9,7 @@ interface RulesGenerateOptions {
     maxTokens?: number;
     temperature?: number;
     chunkSize?: number;
+    chunkDelay?: number;
     repomixFile?: string;
     additionalOptions?: Record<string, string>;
 }
