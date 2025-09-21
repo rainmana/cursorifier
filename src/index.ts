@@ -21,6 +21,7 @@ export const run = async (): Promise<void> => {
       .option('--temperature <temp>', 'Temperature for generation (0-2, default: 0.7)', '0.7')
       .option('--description <text>', 'Description of what should be rulefied')
       .option('--rule-type <type>', 'Type of rule to generate (auto, manual, agent, always)')
+      .option('--output-format <format>', 'Output format for rules (cursor, cline)', 'cursor')
       .option('--chunk-size <size>', 'Chunk size for the repository to be processed in one go (default: 100000)', '100000')
       .option('--repomix-file <path>', 'Path to existing repomix output file (skips repomix execution)')
       .option('--list-providers', 'List available providers and their models')
@@ -89,7 +90,7 @@ export const run = async (): Promise<void> => {
     const additionalOptions: Record<string, string> = {};
     
     // Known options already handled by Commander
-    const knownOptions = ['provider', 'model', 'api-key', 'base-url', 'max-tokens', 'temperature', 'description', 'rule-type', 'chunk-size', 'repomix-file', 'list-providers'];
+    const knownOptions = ['provider', 'model', 'api-key', 'base-url', 'max-tokens', 'temperature', 'description', 'rule-type', 'output-format', 'chunk-size', 'repomix-file', 'list-providers'];
     const knownOptionFlags = knownOptions.map(opt => `--${opt}`);
     
     // Parse additional options from args array
@@ -117,6 +118,7 @@ export const run = async (): Promise<void> => {
     await rulesGenerate(repoPath, {
       description: options.description,
       ruleType: options.ruleType,
+      outputFormat: options.outputFormat,
       provider: options.provider,
       model: options.model,
       apiKey: options.apiKey,

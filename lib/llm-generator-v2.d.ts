@@ -7,4 +7,4 @@ export interface LLMGeneratorOptions {
     temperature?: number;
     chunkSize?: number;
 }
-export declare function generateWithLLM(repoContent: string, guidelines: string, outputDir?: string, description?: string, ruleType?: string, options?: LLMGeneratorOptions): Promise<string>;
+export declare function generateWithLLM(repoContent: string, guidelines: string, outputDir?: string, description?: string, ruleType?: string, outputFormat?: string, options?: LLMGeneratorOptions): Promise<string>;

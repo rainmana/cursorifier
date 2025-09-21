@@ -8,6 +8,7 @@ import { generateWithLLM } from './llm-generator-v2.js';
 interface RulesGenerateOptions {
   description?: string;
   ruleType?: string;
+  outputFormat?: string;
   provider?: string;
   model?: string;
   apiKey?: string;
@@ -29,7 +30,15 @@ export async function rulesGenerate(
     
     // 2. Set output directory based on repo name
     const outputDir = `${repoName}-output`;
-    const outputFile = path.join(outputDir, `${repoName}.rules.mdc`);
+    const outputFormat = options.outputFormat || 'cursor';
+    
+    // Determine output file based on format
+    let outputFile: string;
+    if (outputFormat === 'cline') {
+      outputFile = path.join(outputDir, '.clinerules');
+    } else {
+      outputFile = path.join(outputDir, `${repoName}.rules.mdc`);
+    }
     
     // Ensure output directory exists
     await fs.mkdir(outputDir, { recursive: true });
@@ -57,14 +66,16 @@ export async function rulesGenerate(
       }
     }
     
-    console.log(pc.cyan('2. Reading cursor rules guidelines...'));
-    // 4. Read guidelines file
+    console.log(pc.cyan(`2. Reading ${outputFormat} rules guidelines...`));
+    // 4. Read guidelines file based on output format
     let guidelinesText: string;
+    const guidelinesFile = outputFormat === 'cline' ? 'cline_rules.md' : 'cursor_mdc.md';
+    
     try {
       // First try with a path relative to the current module
       const modulePath = new URL(import.meta.url).pathname;
       const moduleDir = path.dirname(modulePath);
-      const moduleDirPath = path.resolve(moduleDir, '../src/prompts/cursor_mdc.md');
+      const moduleDirPath = path.resolve(moduleDir, `../src/prompts/${guidelinesFile}`);
       
       guidelinesText = await fs.readFile(moduleDirPath, 'utf-8');
       console.log(pc.green('✓ Successfully read guidelines from module path'));
@@ -72,7 +83,7 @@ export async function rulesGenerate(
       // If not found in module path, try with a local path
       try {
         console.debug(`Error: ${_error}. Trying to read guidelines from local path...`);
-        guidelinesText = await readGuidelines('../src/prompts/cursor_mdc.md');
+        guidelinesText = await readGuidelines(`../src/prompts/${guidelinesFile}`);
         console.log(pc.green('✓ Successfully read guidelines from local path'));
       } catch (innerError) {
         console.log(pc.yellow('Warning: Could not read guidelines. Error: ' + innerError + '. Using built-in guidelines.'));
@@ -80,7 +91,7 @@ export async function rulesGenerate(
       }
     }
     
-    console.log(pc.cyan('3. Generating cursor rules...'));
+    console.log(pc.cyan(`3. Generating ${outputFormat} rules...`));
     // 5. Generate rules using LLM
     const generatedRules = await generateWithLLM(
       repoText, 
@@ -88,6 +99,7 @@ export async function rulesGenerate(
       outputDir, 
       options.description,
       options.ruleType,
+      options.outputFormat,
       {
         provider: options.provider || 'anthropic',
         model: options.model,
@@ -103,7 +115,7 @@ export async function rulesGenerate(
     // 6. Write output to file
     await fs.writeFile(outputFile, generatedRules);
     
-    console.log(pc.green(`\n✅ Successfully generated cursor rules for ${repoName}!`));
+    console.log(pc.green(`\n✅ Successfully generated ${outputFormat} rules for ${repoName}!`));
     console.log(`Output saved to: ${pc.bold(outputFile)}`);
     console.log(`All generated files are in: ${pc.bold(outputDir)}`);
   } catch (error) {

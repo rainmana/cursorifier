@@ -1,6 +1,7 @@
 interface RulesGenerateOptions {
     description?: string;
     ruleType?: string;
+    outputFormat?: string;
     provider?: string;
     model?: string;
     apiKey?: string;

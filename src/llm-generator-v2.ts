@@ -27,6 +27,7 @@ export async function generateWithLLM(
   outputDir: string = '.',
   description?: string,
   ruleType?: string,
+  outputFormat?: string,
   options: LLMGeneratorOptions = { provider: 'anthropic' }
 ): Promise<string> {
   // If this is a test run with dummy API key, just return a mock response
@@ -35,7 +36,7 @@ export async function generateWithLLM(
     return generateMockResponse(repoContent);
   }
   
-  return await generateWithProvider(repoContent, guidelines, outputDir, description, ruleType, options);
+  return await generateWithProvider(repoContent, guidelines, outputDir, description, ruleType, outputFormat, options);
 }
 
 /**
@@ -146,6 +147,7 @@ async function generateWithProvider(
   outputDir: string = '.',
   description?: string,
   ruleType?: string,
+  outputFormat?: string,
   options: LLMGeneratorOptions = { provider: 'anthropic' }
 ): Promise<string> {
   const registry = new LLMProviderRegistry();
