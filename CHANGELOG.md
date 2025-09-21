@@ -13,8 +13,8 @@ All notable changes to this project will be documented in this file.
 - 📋 **Provider Listing**: Added `--list-providers` option to show available providers and models
 
 ### Changed
-- 🏷️ **Project Renamed**: Renamed from `rulefy` to `cursorify` to avoid conflicts
-- 📦 **Binary Renamed**: Command changed from `rulefy` to `cursorify`
+- 🏷️ **Project Renamed**: Renamed from `rulefy` to `cursorifier` to avoid conflicts
+- 📦 **Binary Renamed**: Command changed from `rulefy` to `cursorifier`
 - 🔧 **Enhanced CLI**: More granular control over LLM parameters
 
 ### Technical Details

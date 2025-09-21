@@ -1,11 +1,11 @@
 {
-  "name": "cursorify",
+  "name": "cursorifier",
   "version": "0.1.4",
   "description": "Transform GitHub repositories into cursor rules instructions using multiple LLM providers (Anthropic, OpenAI, Ollama, etc.)",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "bin": {
-    "cursorify": "./bin/cursorify.cjs"
+    "cursorifier": "./bin/cursorifier.cjs"
   },
   "type": "module",
   "files": [
@@ -31,16 +31,16 @@
     "ollama",
     "local-llm",
     "cursor-rules",
-    "cursorify"
+    "cursorifier"
   ],
   "author": "niklub",
-  "homepage": "https://github.com/niklub/cursorify",
+  "homepage": "https://github.com/rainmana/cursorifier",
   "bugs": {
-    "url": "https://github.com/niklub/cursorify/issues"
+    "url": "https://github.com/rainmana/cursorifier/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/niklub/cursorify.git"
+    "url": "git+https://github.com/rainmana/cursorifier.git"
   },
   "license": "MIT",
   "dependencies": {

@@ -10,7 +10,7 @@ export const run = async (): Promise<void> => {
     const registry = new LLMProviderRegistry();
     
     program
-      .description('Cursorify - Transform GitHub repositories into cursor rules instructions')
+      .description('Cursorifier - Transform GitHub repositories into cursor rules instructions')
       .argument('[repo-path]', 'Path to the repository', '.')
       .allowExcessArguments(true)
       .option('--provider <provider>', 'LLM provider to use (anthropic, openai, local)', 'anthropic')
@@ -62,9 +62,9 @@ export const run = async (): Promise<void> => {
     }
     
     if (options.repomixFile) {
-      console.log(pc.bold(`\n🧩 Cursorify - Generating cursor rules using repomix file: ${options.repomixFile}\n`));
+      console.log(pc.bold(`\n🧩 Cursorifier - Generating cursor rules using repomix file: ${options.repomixFile}\n`));
     } else {
-      console.log(pc.bold(`\n🧩 Cursorify - Generating cursor rules for ${repoPath}\n`));
+      console.log(pc.bold(`\n🧩 Cursorifier - Generating cursor rules for ${repoPath}\n`));
     }
     
     // Display provider information

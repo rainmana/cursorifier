@@ -1,8 +1,8 @@
-# Cursorify
+# Cursorifier
 
-[![npm version](https://img.shields.io/npm/v/cursorify.svg)](https://www.npmjs.com/package/cursorify)
+[![npm version](https://img.shields.io/npm/v/cursorifier.svg)](https://www.npmjs.com/package/cursorifier)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/node/v/cursorify.svg)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/node/v/cursorifier.svg)](https://nodejs.org/)
 
 **Supercharge your Cursor AI with codebase-specific intelligence.** Cursorify transforms your GitHub repositories into custom rules that teach Cursor AI how your project works, resulting in more accurate code suggestions, better refactoring, and contextually aware assistance. Now supports multiple LLM providers including Anthropic Claude, OpenAI, and local models like Ollama.
 
@@ -29,10 +29,10 @@
 
 ```bash
 # Install globally
-npm install -g cursorify
+npm install -g cursorifier
 
 # Or use with npx (no installation required)
-npx cursorify
+npx cursorifier
 ```
 
 ## Prerequisites
@@ -60,44 +60,44 @@ No API key required! Just make sure your local service is running.
 The basic command structure is:
 
 ```bash
-cursorify <repo-path>
+cursorifier <repo-path>
 ```
 
 Examples:
 
 ```bash
 # Inside a repository (uses Anthropic Claude by default)
-cursorify
+cursorifier
 
 # Using OpenAI
-cursorify --provider openai --model gpt-4o
+cursorifier --provider openai --model gpt-4o
 
 # Using local Ollama model
-cursorify --provider local --model llama3.1 --base-url http://localhost:11434/v1
+cursorifier --provider local --model llama3.1 --base-url http://localhost:11434/v1
 
 # Using local LM Studio
-cursorify --provider local --model llama3.1 --base-url http://localhost:1234/v1
+cursorifier --provider local --model llama3.1 --base-url http://localhost:1234/v1
 
 # Using local repository path
-cursorify ./my-local-project/subdir
+cursorifier ./my-local-project/subdir
 
 # Using GitHub URL
-cursorify --remote https://github.com/fastapi/fastapi
+cursorifier --remote https://github.com/fastapi/fastapi
 
-# Cursorify with specific description as an option
-cursorify --description "guidelines for extending the component using the base interface"
+# Cursorifier with specific description as an option
+cursorifier --description "guidelines for extending the component using the base interface"
 
 # Specify Cursor AI rule type
-cursorify --rule-type "agent" --description "coding standards for React components"
+cursorifier --rule-type "agent" --description "coding standards for React components"
 
 # List available providers and models
-cursorify --list-providers
+cursorifier --list-providers
 
 # Use existing repomix output file
-cursorify --repomix-file ./my-repo-output.txt
+cursorifier --repomix-file ./my-repo-output.txt
 
 # Use repomix file with specific provider
-cursorify --repomix-file ./output.txt --provider openai --model gpt-4o
+cursorifier --repomix-file ./output.txt --provider openai --model gpt-4o
 ```
 
 This will:
@@ -150,17 +150,17 @@ curl -fsSL https://ollama.ai/install.sh | sh
 # Pull a model
 ollama pull llama3.1
 
-# Run cursorify with Ollama
-cursorify --provider local --model llama3.1
+# Run cursorifier with Ollama
+cursorifier --provider local --model llama3.1
 ```
 
 #### LM Studio
 1. Download and install [LM Studio](https://lmstudio.ai/)
 2. Load a model in LM Studio
 3. Start the local server
-4. Run cursorify with the LM Studio URL:
+4. Run cursorifier with the LM Studio URL:
 ```bash
-cursorify --provider local --model llama3.1 --base-url http://localhost:1234/v1
+cursorifier --provider local --model llama3.1 --base-url http://localhost:1234/v1
 ```
 
 ## Using Existing Repomix Files
@@ -169,13 +169,13 @@ If you already have a repomix output file, you can use it directly without runni
 
 ```bash
 # Use existing repomix file
-cursorify --repomix-file ./my-repo-output.txt
+cursorifier --repomix-file ./my-repo-output.txt
 
 # Use with specific provider and model
-cursorify --repomix-file ./output.txt --provider local --model llama3.1
+cursorifier --repomix-file ./output.txt --provider local --model llama3.1
 
 # Use with custom description
-cursorify --repomix-file ./output.txt --description "React component guidelines"
+cursorifier --repomix-file ./output.txt --description "React component guidelines"
 ```
 
 This is useful when:
@@ -184,10 +184,10 @@ This is useful when:
 - You want to process the same repository with different LLM providers
 - You want to avoid running repomix multiple times
 
-`cursorify` supports [all options supported by `repomix`](https://github.com/yamadashy/repomix/tree/main?tab=readme-ov-file#-usage). For example, select specific files:
+`cursorifier` supports [all options supported by `repomix`](https://github.com/yamadashy/repomix/tree/main?tab=readme-ov-file#-usage). For example, select specific files:
 
 ```bash
-cursorify --include "src/**/*.ts" --compress
+cursorifier --include "src/**/*.ts" --compress
 ```
 
 ## Installing Rules in Cursor
