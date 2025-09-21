@@ -1,0 +1,93 @@
+name: Auto Version Tag
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '*.md'
+
+jobs:
+  version-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Build project
+        run: npm run build
+
+      - name: Get current version
+        id: version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: tag-check
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.VERSION }}" >/dev/null 2>&1; then
+            echo "EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.tag-check.outputs.EXISTS == 'false'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag "v${{ steps.version.outputs.VERSION }}"
+          git push origin "v${{ steps.version.outputs.VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        if: steps.tag-check.outputs.EXISTS == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          release_name: Release v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## What's New in v${{ steps.version.outputs.VERSION }}
+            
+            This release includes:
+            - Roo Custom Modes support as third output format
+            - Enhanced multi-format support (Cursor, Cline, Roo)
+            - Fixed repomix output to single file
+            - Improved error handling and rate limiting
+            - Updated documentation and examples
+            
+            ## Installation
+            ```bash
+            npm install -g cursorifier
+            ```
+            
+            ## Usage
+            ```bash
+            # Cursor AI Rules
+            cursorifier . --output-format cursor
+            
+            # Cline Rules  
+            cursorifier . --output-format cline
+            
+            # Roo Custom Modes
+            cursorifier . --output-format roo
+            ```
+          draft: false
+          prerelease: false
