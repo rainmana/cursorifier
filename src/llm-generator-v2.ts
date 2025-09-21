@@ -19,7 +19,7 @@ function sanitizeText(text: string): string {
     .replace(/<\|endoftext\|>/g, '') // Remove endoftext tokens
     .replace(/<\|end\|>/g, '') // Remove end tokens
     .replace(/<\|start\|>/g, '') // Remove start tokens
-    .replace(/\x00/g, '') // Remove null bytes
+    .replace(/\0/g, '') // Remove null bytes
     .replace(/\uFFFD/g, '') // Remove replacement characters
     .trim();
 }

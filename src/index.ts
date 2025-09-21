@@ -117,7 +117,7 @@ export const run = async (): Promise<void> => {
     }
     
     // Get API key from CLI option or environment variable
-    const apiKeyEnvVar = registry.getApiKeyEnvVar(options.provider as any);
+    const apiKeyEnvVar = registry.getApiKeyEnvVar(options.provider as 'anthropic' | 'openai' | 'local');
     const apiKey = options.apiKey || process.env[apiKeyEnvVar];
     
     await rulesGenerate(repoPath, {

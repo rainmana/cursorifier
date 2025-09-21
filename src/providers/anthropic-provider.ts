@@ -43,7 +43,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     config: LLMProviderConfig
   ): Promise<LLMResponse> {
     const maxRetries = 3;
-    let lastError: Error | null = null;
+    let lastError: unknown = null;
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -84,11 +84,12 @@ export class AnthropicProvider extends BaseLLMProvider {
           model: config.model,
           provider: this.name
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         lastError = error;
         
         // Check if it's a rate limit error
-        if (error.status === 429 || (error.message && error.message.includes('rate limit'))) {
+        const errorObj = error as { status?: number; message?: string };
+        if (errorObj.status === 429 || (errorObj.message && errorObj.message.includes('rate limit'))) {
           if (attempt < maxRetries) {
             const delay = Math.pow(2, attempt) * 2000; // Exponential backoff: 2s, 4s, 8s
             console.log(`⏳ Rate limited. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
@@ -103,7 +104,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     }
     
     // If we get here, all retries failed
-    throw lastError || new Error('All retry attempts failed');
+    throw lastError instanceof Error ? lastError : new Error('All retry attempts failed');
   }
 
   /**
