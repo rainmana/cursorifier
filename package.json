@@ -1,6 +1,6 @@
 {
   "name": "cursorifier",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Transform GitHub repositories into cursor rules instructions using multiple LLM providers (Anthropic, OpenAI, Ollama, etc.)",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
