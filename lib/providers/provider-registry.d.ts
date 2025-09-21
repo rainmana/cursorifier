@@ -42,7 +42,7 @@ export declare class LLMProviderRegistry implements ProviderRegistry {
     /**
      * Validate provider configuration
      */
-    validateProviderConfig(providerType: ProviderType, config: any): void;
+    validateProviderConfig(providerType: ProviderType, config: unknown): void;
     /**
      * Get environment variable name for API key based on provider
      */
@@ -50,5 +50,5 @@ export declare class LLMProviderRegistry implements ProviderRegistry {
     /**
      * Get default configuration for a provider
      */
-    getDefaultConfig(providerType: ProviderType): any;
+    getDefaultConfig(providerType: ProviderType): Record<string, unknown>;
 }

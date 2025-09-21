@@ -21,11 +21,11 @@ export declare class LocalProvider extends BaseLLMProvider {
     /**
      * Extract content from OpenAI-compatible response
      */
-    protected extractContent(response: any): string;
+    protected extractContent(response: unknown): string;
     /**
      * Extract usage information from OpenAI-compatible response
      */
-    protected extractUsage(response: any): LLMResponse['usage'];
+    protected extractUsage(response: unknown): LLMResponse['usage'];
     /**
      * Validate local provider configuration
      */

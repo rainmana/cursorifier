@@ -25,9 +25,9 @@ export declare class OpenAIProvider extends BaseLLMProvider {
     /**
      * Extract content from OpenAI response
      */
-    protected extractContent(response: any): string;
+    protected extractContent(response: unknown): string;
     /**
      * Extract usage information from OpenAI response
      */
-    protected extractUsage(response: any): LLMResponse['usage'];
+    protected extractUsage(response: unknown): LLMResponse['usage'];
 }

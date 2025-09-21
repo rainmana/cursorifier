@@ -83,15 +83,15 @@ export abstract class BaseLLMProvider implements LLMProvider {
   /**
    * Extract content from provider-specific response format
    */
-  protected extractContent(response: any): string {
+  protected extractContent(_response: unknown): string {
     // This should be overridden by each provider
-    return response.content || response.text || '';
+    return '';
   }
 
   /**
    * Extract usage information from provider-specific response format
    */
-  protected extractUsage(response: any): LLMResponse['usage'] {
+  protected extractUsage(_response: unknown): LLMResponse['usage'] {
     // This should be overridden by each provider
     return undefined;
   }

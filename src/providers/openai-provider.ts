@@ -1,7 +1,19 @@
 import OpenAI from 'openai';
-import pc from 'picocolors';
 import { BaseLLMProvider } from './base-provider.js';
 import { LLMProviderConfig, LLMMessage, LLMResponse } from '../types/llm-provider.js';
+
+interface OpenAILikeResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+}
 
 /**
  * OpenAI provider implementation
@@ -88,9 +100,12 @@ export class OpenAIProvider extends BaseLLMProvider {
   /**
    * Extract content from OpenAI response
    */
-  protected extractContent(response: any): string {
-    if (response.choices && response.choices.length > 0) {
-      return response.choices[0].message?.content || '';
+  protected extractContent(response: unknown): string {
+    if (response && typeof response === 'object' && 'choices' in response) {
+      const choices = (response as OpenAILikeResponse).choices;
+      if (Array.isArray(choices) && choices.length > 0) {
+        return choices[0].message?.content || '';
+      }
     }
     return '';
   }
@@ -98,13 +113,16 @@ export class OpenAIProvider extends BaseLLMProvider {
   /**
    * Extract usage information from OpenAI response
    */
-  protected extractUsage(response: any): LLMResponse['usage'] {
-    if (response.usage) {
-      return {
-        promptTokens: response.usage.prompt_tokens || 0,
-        completionTokens: response.usage.completion_tokens || 0,
-        totalTokens: response.usage.total_tokens || 0
-      };
+  protected extractUsage(response: unknown): LLMResponse['usage'] {
+    if (response && typeof response === 'object' && 'usage' in response) {
+      const usage = (response as OpenAILikeResponse).usage;
+      if (usage) {
+        return {
+          promptTokens: usage.prompt_tokens || 0,
+          completionTokens: usage.completion_tokens || 0,
+          totalTokens: usage.total_tokens || 0
+        };
+      }
     }
     return undefined;
   }

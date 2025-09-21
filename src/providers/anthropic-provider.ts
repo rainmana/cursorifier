@@ -1,7 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
-import pc from 'picocolors';
 import { BaseLLMProvider } from './base-provider.js';
 import { LLMProviderConfig, LLMMessage, LLMResponse } from '../types/llm-provider.js';
+
+interface AnthropicResponse {
+  content?: Array<{ text?: string }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+}
 
 /**
  * Anthropic Claude provider implementation
@@ -94,9 +101,12 @@ export class AnthropicProvider extends BaseLLMProvider {
   /**
    * Extract content from Anthropic response
    */
-  protected extractContent(response: any): string {
-    if (response.content && Array.isArray(response.content) && response.content.length > 0) {
-      return response.content[0].text || '';
+  protected extractContent(response: unknown): string {
+    if (response && typeof response === 'object' && 'content' in response) {
+      const content = (response as AnthropicResponse).content;
+      if (Array.isArray(content) && content.length > 0) {
+        return content[0].text || '';
+      }
     }
     return '';
   }
@@ -104,13 +114,16 @@ export class AnthropicProvider extends BaseLLMProvider {
   /**
    * Extract usage information from Anthropic response
    */
-  protected extractUsage(response: any): LLMResponse['usage'] {
-    if (response.usage) {
-      return {
-        promptTokens: response.usage.input_tokens || 0,
-        completionTokens: response.usage.output_tokens || 0,
-        totalTokens: response.usage.input_tokens + response.usage.output_tokens || 0
-      };
+  protected extractUsage(response: unknown): LLMResponse['usage'] {
+    if (response && typeof response === 'object' && 'usage' in response) {
+      const usage = (response as AnthropicResponse).usage;
+      if (usage) {
+        return {
+          promptTokens: usage.input_tokens || 0,
+          completionTokens: usage.output_tokens || 0,
+          totalTokens: (usage.input_tokens || 0) + (usage.output_tokens || 0)
+        };
+      }
     }
     return undefined;
   }

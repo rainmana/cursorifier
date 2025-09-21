@@ -1,5 +1,5 @@
 import pc from 'picocolors';
-import { LLMProvider, ProviderType, ProviderRegistry } from '../types/llm-provider.js';
+import { LLMProvider, ProviderType, ProviderRegistry, LLMProviderConfig } from '../types/llm-provider.js';
 import { AnthropicProvider } from './anthropic-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
 import { LocalProvider } from './local-provider.js';
@@ -84,9 +84,9 @@ export class LLMProviderRegistry implements ProviderRegistry {
   /**
    * Validate provider configuration
    */
-  validateProviderConfig(providerType: ProviderType, config: any): void {
+  validateProviderConfig(providerType: ProviderType, config: unknown): void {
     const provider = this.getProvider(providerType);
-    provider.validateConfig(config);
+    provider.validateConfig(config as LLMProviderConfig);
   }
 
   /**
@@ -94,21 +94,21 @@ export class LLMProviderRegistry implements ProviderRegistry {
    */
   getApiKeyEnvVar(providerType: ProviderType): string {
     switch (providerType) {
-      case 'anthropic':
-        return 'ANTHROPIC_API_KEY';
-      case 'openai':
-        return 'OPENAI_API_KEY';
-      case 'local':
-        return 'LOCAL_API_KEY'; // Optional for local providers
-      default:
-        throw new Error(`Unknown provider type: ${providerType}`);
+    case 'anthropic':
+      return 'ANTHROPIC_API_KEY';
+    case 'openai':
+      return 'OPENAI_API_KEY';
+    case 'local':
+      return 'LOCAL_API_KEY'; // Optional for local providers
+    default:
+      throw new Error(`Unknown provider type: ${providerType}`);
     }
   }
 
   /**
    * Get default configuration for a provider
    */
-  getDefaultConfig(providerType: ProviderType): any {
+  getDefaultConfig(providerType: ProviderType): Record<string, unknown> {
     const provider = this.getProvider(providerType);
     const apiKeyEnvVar = this.getApiKeyEnvVar(providerType);
     

@@ -5,7 +5,7 @@ import pc from 'picocolors';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { LLMProviderRegistry } from './providers/provider-registry.js';
-import { LLMProviderConfig, LLMMessage, ChunkProcessingOptions } from './types/llm-provider.js';
+import { LLMProviderConfig, LLMMessage } from './types/llm-provider.js';
 
 // Environment variables for chunk configuration, with defaults
 const CHUNK_SIZE = Number(process.env.CHUNK_SIZE || '100000');
@@ -151,7 +151,7 @@ async function generateWithProvider(
   const registry = new LLMProviderRegistry();
   
   // Determine provider type
-  const providerType = options.provider as any;
+  const providerType = options.provider as 'anthropic' | 'openai' | 'local';
   const provider = registry.getProvider(providerType);
   
   // Get default configuration for the provider
@@ -161,7 +161,7 @@ async function generateWithProvider(
   const config: LLMProviderConfig = {
     ...defaultConfig,
     ...options,
-    model: options.model || defaultConfig.model
+    model: options.model || (defaultConfig.model as string)
   };
 
   // Validate configuration
